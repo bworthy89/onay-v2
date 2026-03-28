@@ -335,13 +335,16 @@ Build the core pipeline and prove the concept with a single station.
 
 ### Phase 2: Mobile App (Weeks 5–8)
 
-Ship the listener experience.
+Ship the listener experience. The UI is migrated from v1 — the work here is implementing stubs against the v2 backend.
 
-- React Native/Expo iOS app: station browsing, now-playing, library.
-- Apple Music integration via MusicKit.
-- Spotify integration via Spotify SDK.
+- Run v1 → v2 UI migration (see Section 11.8). Verify app compiles with stubs.
+- Implement Storage and AuthService stubs.
+- Implement MusicProvider stub with Apple Music (MusicKit) and Spotify (Spotify SDK) backends.
+- Implement SessionEngine and QueueManager stubs to consume timeline manifests from the API.
+- Implement AudioCoordinator and SegmentController stubs for segment playback + music ducking.
+- Rewire BroadcastScreen to play from assembled timelines instead of real-time generation.
 - Playback orchestration: timeline execution, song/segment interleaving.
-- Album art color extraction and dynamic UI theming.
+- Album art color extraction and dynamic UI theming (carried over from v1, verify working).
 - TestFlight beta launch with 3–5 curated stations.
 
 ### Phase 3: Scale & Polish (Weeks 9–12)
@@ -401,18 +404,36 @@ The project uses a monorepo with clear boundaries between the mobile app, toolin
 ```
 onay/
 ├── apps/
-│   ├── mobile/          # React Native/Expo iOS app
-│   └── tools/           # Station Manager, Segment Studio, Assembly Dashboard (web)
+│   ├── mobile/                    # React Native/Expo iOS app (migrated from v1)
+│   │   ├── app/                   # Expo Router layouts & routes
+│   │   │   ├── (auth)/            # Login flow
+│   │   │   ├── (onboarding)/      # Welcome, music auth, setup
+│   │   │   └── (main)/            # Tab groups: broadcast, arc, archive, cleo
+│   │   ├── src/
+│   │   │   ├── tokens/            # Design tokens (colors, typography, spacing)
+│   │   │   ├── components/        # 15 shared UI components
+│   │   │   ├── screens/           # 7 screen implementations
+│   │   │   ├── hooks/             # useAppActive, etc.
+│   │   │   ├── services/          # Storage, AuthService, api, MusicProvider
+│   │   │   ├── engines/           # SessionEngine, AudioCoordinator, QueueManager, etc.
+│   │   │   ├── cleo/              # Vibe definitions, fallbacks
+│   │   │   └── config/            # Feature flags
+│   │   ├── assets/                # Icons, splash, Onay frames, textures
+│   │   └── app.json
+│   └── tools/                     # Station Manager, Segment Studio, Assembly Dashboard (web)
 ├── packages/
-│   ├── core/            # Shared types, segment schema, timeline format
-│   ├── assembly/        # Assembly pipeline logic
-│   └── tts/             # Chatterbox integration, batch generation scripts
+│   ├── core/                      # Shared types, segment schema, timeline format
+│   ├── assembly/                  # Assembly pipeline logic
+│   └── tts/                       # Chatterbox integration, batch generation scripts
 ├── services/
-│   └── api/             # Express/TypeScript backend
-├── docs/                # PRD, architecture decisions, CLAUDE.md
+│   └── api/                       # Express/TypeScript backend
+├── docs/                          # PRD, architecture decisions
+│   └── design-reference/          # v1 UI screenshots for visual QA
+├── v2-migration/                  # Migration scripts and stubs (from v1)
 ├── .github/
-│   └── workflows/       # CI/CD
-└── package.json         # Workspace root
+│   └── workflows/                 # CI/CD
+├── CLAUDE.md
+└── package.json                   # Workspace root
 ```
 
 This keeps things modular so the mobile app, tooling web app, and backend don't become tangled. The `packages/` folder holds shared logic that both apps and the API consume.
@@ -485,6 +506,69 @@ Semantic versioning with milestones tied to minor versions:
 - `v0.4.0` — Station Manager and Segment Studio tooling
 - `v0.5.0` — Multiple stations, TestFlight beta
 - `v1.0.0` — App Store submission
+
+### 11.8 V1 → V2 UI Migration
+
+The mobile app UI is carried over from v1, not rebuilt from scratch. A migration kit (`v2-migration/`) extracts all UI-related files from the v1 codebase and provides stub implementations for every service and engine dependency. This preserves the visual identity and routing structure while allowing the backend to be completely replaced.
+
+**What the migration carries over (50+ files):**
+
+| Category | Count | Details |
+|---|---|---|
+| Design tokens | 1 | Colors, surfaces, typography, spacing, radii, animations |
+| Components | 15 | AppHeader, CleoOrb, CleoPulseDot, CleoSpeakingOverlay, ErrorBoundary, ErrorState, GlassCard, OfflineBanner, OnayCharacter, SectionLabel, StationCard, TabBar, TabIcon, VibePicker, WaveformBars |
+| Screens | 7 | Home, Broadcast, SessionArc, Archive, Profile, Onboarding, AskOnay |
+| Routing | 20 | Full Expo Router layout (auth, onboarding, 4 tab groups) |
+| Hooks | 1 | useAppActive (background/foreground detection) |
+| Assets | 11 | Icons, splash, Onay character frames, animation, grain texture |
+| Config | 3 | tsconfig, firebase plugin, feature flags |
+
+**Stubs to implement:**
+
+Every stub file has `// TODO:` markers. The interfaces match what the existing screens expect. Implementing these stubs against the v2 backend is the primary mobile development work.
+
+| Stub | Purpose | Screens Depending On It |
+|---|---|---|
+| Storage | MMKV persistence layer | 7 screens + app/index |
+| AuthService | Auth state + sign-in providers | login, index, ProfileScreen |
+| api | authenticatedFetch wrapper | HomeScreenRedesign |
+| MusicProvider | Music playback abstraction | Home, Broadcast, Arc, Profile, music-auth |
+| SessionEngine | Session state + phase tracking | Home, Broadcast, Arc, AskOnay |
+| AudioCoordinator | Audio playback + ducking | BroadcastScreen |
+| SegmentController | Segment generation/playback | BroadcastScreen |
+| TransitionPreloader | Pre-loading transitions | BroadcastScreen |
+| QueueManager | Track queue management | BroadcastScreen, AskOnay |
+| PlaylistCurator | AI playlist generation | AskOnayScreen |
+| SessionMemory | Session history persistence | ArchiveScreen |
+| fallbacks | Vibe definitions + fallback segments | VibePicker, Home, Archive, Broadcast |
+
+**Migration steps:**
+
+1. Archive the v1 repo (tag `v1-archive` on `main`).
+2. Create fresh `onay` repo, initialize with `npx create-expo-app@latest . --template blank-typescript`.
+3. Run `v2-migration/migrate-ui.sh /path/to/onay/apps/mobile` to copy all UI files.
+4. Copy stubs into `src/services/`, `src/engines/`, and `src/cleo/`.
+5. Merge dependencies from `package-ui-deps.json` into `package.json`.
+6. Replace `app.json` with `app-v2.json`.
+7. Run `npm install` and verify the app compiles.
+8. Implement stubs one by one against the v2 backend, starting with Storage and AuthService.
+
+**Design system reference:**
+
+| Token | Value |
+|---|---|
+| Background | `#0D0D0D` |
+| Accent (gold) | `#C8832A` |
+| Card style | 2px gold left border on dark cards |
+| Mono labels | DM Mono, 10px, ALL CAPS, letter-spacing 2.5 |
+| Corner radius | 4px throughout |
+| Display font | Playfair Display 400 |
+| Body font | Inter 400/500/600 |
+| Onay dialogue font | EB Garamond 400 Italic |
+| UI chrome font | DM Mono 400 |
+| Vibes | 12 vibes with unique accent colors (morning, chill, workout, lateNight, party, general, focus, feelGood, throwback, elevated, melancholy, sunday) |
+
+**expo-music-kit native module:** 5 screens import from `modules/expo-music-kit`. The recommended approach is to abstract these imports through the `MusicProvider` stub, which aligns with the v2 provider-agnostic architecture. The native module can be ported later if direct MusicKit access is needed for features beyond what the abstraction covers.
 
 ---
 

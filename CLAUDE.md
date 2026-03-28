@@ -33,19 +33,71 @@ Three layers:
 ```
 onay/
 ├── apps/
-│   ├── mobile/          # React Native/Expo iOS app
-│   └── tools/           # Station Manager, Segment Studio, Assembly Dashboard (web)
+│   ├── mobile/                    # React Native/Expo iOS app (migrated from v1)
+│   │   ├── app/                   # Expo Router layouts & routes
+│   │   │   ├── (auth)/            # Login flow
+│   │   │   ├── (onboarding)/      # Welcome, music auth, setup
+│   │   │   └── (main)/            # Tab groups: broadcast, arc, archive, cleo
+│   │   ├── src/
+│   │   │   ├── tokens/            # Design tokens (colors, typography, spacing)
+│   │   │   ├── components/        # 15 shared UI components
+│   │   │   ├── screens/           # 7 screen implementations
+│   │   │   ├── hooks/             # useAppActive, etc.
+│   │   │   ├── services/          # Storage, AuthService, api, MusicProvider
+│   │   │   ├── engines/           # SessionEngine, AudioCoordinator, QueueManager, etc.
+│   │   │   ├── cleo/              # Vibe definitions, fallbacks
+│   │   │   └── config/            # Feature flags
+│   │   ├── assets/                # Icons, splash, Onay frames, textures
+│   │   └── app.json
+│   └── tools/                     # Station Manager, Segment Studio, Assembly Dashboard (web)
 ├── packages/
-│   ├── core/            # Shared types, segment schema, timeline format
-│   ├── assembly/        # Assembly pipeline logic
-│   └── tts/             # Chatterbox integration, batch generation scripts
+│   ├── core/                      # Shared types, segment schema, timeline format
+│   ├── assembly/                  # Assembly pipeline logic
+│   └── tts/                       # Chatterbox integration, batch generation scripts
 ├── services/
-│   └── api/             # Express/TypeScript backend
-├── docs/                # PRD, architecture docs
+│   └── api/                       # Express/TypeScript backend
+├── docs/                          # PRD, architecture decisions
+│   └── design-reference/          # v1 UI screenshots for visual QA
+├── v2-migration/                  # Migration scripts and stubs (from v1)
 ├── .github/
-│   └── workflows/       # CI/CD
-└── package.json         # Workspace root
+│   └── workflows/                 # CI/CD
+├── CLAUDE.md
+└── package.json                   # Workspace root
 ```
+
+## V1 → V2 UI Migration
+
+The mobile app UI is carried over from v1, NOT rebuilt from scratch. A migration kit (`v2-migration/`) extracted all UI files (50+ files: 15 components, 7 screens, 20 routing files, design tokens, assets). Service and engine dependencies are replaced with stub files that have `// TODO:` markers.
+
+**The job is to implement the stubs against the v2 backend, not to rebuild the UI.**
+
+### Stubs to Implement
+
+These are in `apps/mobile/src/services/` and `apps/mobile/src/engines/`. Each has an interface that the existing screens already import and use. Implement the interface — don't change the screens.
+
+| Stub | Location | What It Does |
+|---|---|---|
+| Storage | services/Storage.ts | MMKV persistence (already functional, may need new keys) |
+| AuthService | services/AuthService.ts | Auth state, sign-in, JWT tokens |
+| api | services/api.ts | authenticatedFetch — point to v2 API base URL |
+| MusicProvider | services/music/MusicProvider.ts | Playback abstraction over Apple Music + Spotify |
+| SessionEngine | engines/SessionEngine.ts | Session state, phase tracking, track advancement |
+| AudioCoordinator | engines/AudioCoordinator.ts | Segment audio playback, music ducking |
+| SegmentController | engines/SegmentController.ts | Fetches/plays segments from timeline manifest |
+| TransitionPreloader | engines/TransitionPreloader.ts | Pre-loads upcoming segments |
+| QueueManager | engines/QueueManager.ts | Manages the station's track queue from timeline |
+| PlaylistCurator | engines/PlaylistCurator.ts | AI playlist generation (Phase 2) |
+| SessionMemory | services/SessionMemory.ts | Session history persistence |
+| fallbacks | cleo/fallbacks.ts | 12 vibe definitions with labels, emojis, accent colors |
+
+### Design System (do not change)
+
+- Background: `#0D0D0D` — Accent: `#C8832A` (gold)
+- Gold left-edge cards: 2px gold left border on dark cards
+- Mono labels: DM Mono, 10px, ALL CAPS, letter-spacing 2.5
+- Sharp corners: 4px radius throughout
+- Fonts: Playfair Display (display), Inter (body), EB Garamond Italic (Onay dialogue), DM Mono (UI chrome)
+- Full token definitions in `src/tokens/design-tokens.ts`
 
 ## Key Data Structures
 
@@ -158,3 +210,5 @@ User-curated playlists that run through the same assembly pipeline. Sharing, fol
 ## Current Phase
 
 **Phase 1: Foundation** — Set up Chatterbox, define schemas, build Segment Studio MVP, produce initial segment library (300-500 segments for hip-hop/R&B), build Station Manager MVP, build assembly pipeline MVP, deploy first test station.
+
+**Phase 2: Mobile App** — Run v1 → v2 UI migration (`v2-migration/migrate-ui.sh`). Implement stubs against v2 backend. Priority order: Storage → AuthService → api → MusicProvider → SessionEngine/QueueManager (consume timeline manifests) → AudioCoordinator/SegmentController (segment playback). Do NOT rebuild or significantly modify the UI — implement the stub interfaces so existing screens work with the new backend.
