@@ -58,11 +58,21 @@ export interface TracklistEntry {
 }
 
 export interface RotationSchedule {
-  [timeSlot: string]: {
-    mood_tags: string[];
-    energy_range: [number, number];
-  };
+  frequency: string;
+  time_of_day_target: string;
+  days: string[];
 }
+
+// ---------------------------------------------------------------------------
+// Vibes
+// ---------------------------------------------------------------------------
+
+export const VIBES = [
+  'morning', 'chill', 'workout', 'lateNight', 'party', 'general',
+  'focus', 'feelGood', 'throwback', 'elevated', 'melancholy', 'sunday',
+] as const;
+
+export type Vibe = (typeof VIBES)[number];
 
 export interface Station {
   station_id: string;
