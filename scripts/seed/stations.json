@@ -1,0 +1,155 @@
+[
+  {
+    "station_id": "station-hip-hop-heat",
+    "name": "Hip-Hop Heat",
+    "description": "The hottest hip-hop tracks turning up the energy. Bangers only.",
+    "genre_tags": ["hip-hop"],
+    "mood_tags": ["energetic", "hype"],
+    "cover_art_url": "/assets/stations/hip-hop-heat.jpg",
+    "rotation_schedule": {
+      "frequency": "daily",
+      "time_of_day_target": "afternoon",
+      "days": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    },
+    "tracklist": [
+      { "canonical_id": "drake-gods-plan", "artist": "Drake", "title": "God's Plan", "duration_ms": 198973 },
+      { "canonical_id": "kendrick-lamar-humble", "artist": "Kendrick Lamar", "title": "HUMBLE.", "duration_ms": 177000 },
+      { "canonical_id": "travis-scott-sicko-mode", "artist": "Travis Scott", "title": "SICKO MODE", "duration_ms": 312820 },
+      { "canonical_id": "megan-thee-stallion-savage", "artist": "Megan Thee Stallion", "title": "Savage", "duration_ms": 178000 },
+      { "canonical_id": "future-mask-off", "artist": "Future", "title": "Mask Off", "duration_ms": 204000 },
+      { "canonical_id": "j-cole-no-role-modelz", "artist": "J. Cole", "title": "No Role Modelz", "duration_ms": 292000 },
+      { "canonical_id": "lil-baby-drip-too-hard", "artist": "Lil Baby", "title": "Drip Too Hard", "duration_ms": 145000 },
+      { "canonical_id": "21-savage-a-lot", "artist": "21 Savage", "title": "A Lot", "duration_ms": 307000 },
+      { "canonical_id": "cardi-b-bodak-yellow", "artist": "Cardi B", "title": "Bodak Yellow", "duration_ms": 224000 },
+      { "canonical_id": "jack-harlow-first-class", "artist": "Jack Harlow", "title": "First Class", "duration_ms": 175000 },
+      { "canonical_id": "gunna-pushin-p", "artist": "Gunna", "title": "pushin P", "duration_ms": 191000 },
+      { "canonical_id": "kendrick-lamar-not-like-us", "artist": "Kendrick Lamar", "title": "Not Like Us", "duration_ms": 274000 }
+    ],
+    "provider_availability": {
+      "apple_music": {},
+      "spotify": {}
+    }
+  },
+  {
+    "station_id": "station-late-night-rnb",
+    "name": "Late Night R&B",
+    "description": "Smooth R&B for those late-night vibes. Dim the lights.",
+    "genre_tags": ["r&b"],
+    "mood_tags": ["chill", "late-night", "mellow"],
+    "cover_art_url": "/assets/stations/late-night-rnb.jpg",
+    "rotation_schedule": {
+      "frequency": "daily",
+      "time_of_day_target": "evening",
+      "days": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    },
+    "tracklist": [
+      { "canonical_id": "sza-kill-bill", "artist": "SZA", "title": "Kill Bill", "duration_ms": 153947 },
+      { "canonical_id": "frank-ocean-nights", "artist": "Frank Ocean", "title": "Nights", "duration_ms": 306000 },
+      { "canonical_id": "daniel-caesar-best-part", "artist": "Daniel Caesar", "title": "Best Part", "duration_ms": 219000 },
+      { "canonical_id": "brent-faiyaz-wasteland", "artist": "Brent Faiyaz", "title": "ALL MINE", "duration_ms": 193000 },
+      { "canonical_id": "the-weeknd-call-out-my-name", "artist": "The Weeknd", "title": "Call Out My Name", "duration_ms": 228000 },
+      { "canonical_id": "summer-walker-playing-games", "artist": "Summer Walker", "title": "Playing Games", "duration_ms": 179000 },
+      { "canonical_id": "jhene-aiko-while-we-re-young", "artist": "Jhené Aiko", "title": "While We're Young", "duration_ms": 248000 },
+      { "canonical_id": "giveon-heartbreak-anniversary", "artist": "Giveon", "title": "Heartbreak Anniversary", "duration_ms": 198000 },
+      { "canonical_id": "sza-the-weekend", "artist": "SZA", "title": "The Weekend", "duration_ms": 219000 },
+      { "canonical_id": "frank-ocean-thinkin-bout-you", "artist": "Frank Ocean", "title": "Thinkin Bout You", "duration_ms": 241000 },
+      { "canonical_id": "her-focus", "artist": "H.E.R.", "title": "Focus", "duration_ms": 217000 },
+      { "canonical_id": "khalid-location", "artist": "Khalid", "title": "Location", "duration_ms": 219000 }
+    ],
+    "provider_availability": {
+      "apple_music": {},
+      "spotify": {}
+    }
+  },
+  {
+    "station_id": "station-throwback-vibes",
+    "name": "Throwback Vibes",
+    "description": "The classics from the 90s and 2000s that never get old. Pure nostalgia.",
+    "genre_tags": ["hip-hop", "r&b"],
+    "mood_tags": ["throwback", "nostalgia"],
+    "cover_art_url": "/assets/stations/throwback-vibes.jpg",
+    "rotation_schedule": {
+      "frequency": "daily",
+      "time_of_day_target": "afternoon",
+      "days": ["Monday", "Wednesday", "Friday", "Saturday", "Sunday"]
+    },
+    "tracklist": [
+      { "canonical_id": "lauryn-hill-doo-wop", "artist": "Lauryn Hill", "title": "Doo Wop (That Thing)", "duration_ms": 317000 },
+      { "canonical_id": "outkast-hey-ya", "artist": "Outkast", "title": "Hey Ya!", "duration_ms": 309000 },
+      { "canonical_id": "usher-yeah", "artist": "Usher", "title": "Yeah!", "duration_ms": 250000 },
+      { "canonical_id": "tlc-no-scrubs", "artist": "TLC", "title": "No Scrubs", "duration_ms": 214000 },
+      { "canonical_id": "missy-elliott-get-ur-freak-on", "artist": "Missy Elliott", "title": "Get Ur Freak On", "duration_ms": 252000 },
+      { "canonical_id": "nas-if-i-ruled-the-world", "artist": "Nas", "title": "If I Ruled the World", "duration_ms": 283000 },
+      { "canonical_id": "destiny-s-child-say-my-name", "artist": "Destiny's Child", "title": "Say My Name", "duration_ms": 270000 },
+      { "canonical_id": "jay-z-izzo", "artist": "JAY-Z", "title": "Izzo (H.O.V.A.)", "duration_ms": 240000 },
+      { "canonical_id": "aaliyah-one-in-a-million", "artist": "Aaliyah", "title": "One in a Million", "duration_ms": 272000 },
+      { "canonical_id": "a-tribe-called-quest-can-i-kick-it", "artist": "A Tribe Called Quest", "title": "Can I Kick It?", "duration_ms": 252000 },
+      { "canonical_id": "erykah-badu-on-and-on", "artist": "Erykah Badu", "title": "On & On", "duration_ms": 255000 },
+      { "canonical_id": "notorious-big-juicy", "artist": "The Notorious B.I.G.", "title": "Juicy", "duration_ms": 320000 }
+    ],
+    "provider_availability": {
+      "apple_music": {},
+      "spotify": {}
+    }
+  },
+  {
+    "station_id": "station-chill-beats",
+    "name": "Chill Beats",
+    "description": "Lo-fi grooves and mellow instrumentals. Perfect for focus or unwinding.",
+    "genre_tags": ["lo-fi", "chill"],
+    "mood_tags": ["chill", "focus"],
+    "cover_art_url": "/assets/stations/chill-beats.jpg",
+    "rotation_schedule": {
+      "frequency": "daily",
+      "time_of_day_target": "morning",
+      "days": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    },
+    "tracklist": [
+      { "canonical_id": "nujabes-feather", "artist": "Nujabes", "title": "Feather", "duration_ms": 251000 },
+      { "canonical_id": "tom-misch-it-runs-through-me", "artist": "Tom Misch", "title": "It Runs Through Me", "duration_ms": 244000 },
+      { "canonical_id": "khruangbin-time-you-and-i", "artist": "Khruangbin", "title": "Time (You and I)", "duration_ms": 265000 },
+      { "canonical_id": "jorja-smith-blue-lights", "artist": "Jorja Smith", "title": "Blue Lights", "duration_ms": 230000 },
+      { "canonical_id": "mac-demarco-chamber-of-reflection", "artist": "Mac DeMarco", "title": "Chamber of Reflection", "duration_ms": 287000 },
+      { "canonical_id": "bonobo-kerala", "artist": "Bonobo", "title": "Kerala", "duration_ms": 250000 },
+      { "canonical_id": "toro-y-moi-so-many-details", "artist": "Toro y Moi", "title": "So Many Details", "duration_ms": 252000 },
+      { "canonical_id": "j-dilla-so-far-to-go", "artist": "J Dilla", "title": "So Far to Go", "duration_ms": 232000 },
+      { "canonical_id": "kaytranada-glowed-up", "artist": "Kaytranada", "title": "GLOWED UP", "duration_ms": 234000 },
+      { "canonical_id": "fkj-ylang-ylang", "artist": "FKJ", "title": "Ylang Ylang", "duration_ms": 247000 }
+    ],
+    "provider_availability": {
+      "apple_music": {},
+      "spotify": {}
+    }
+  },
+  {
+    "station_id": "station-workout-energy",
+    "name": "Workout Energy",
+    "description": "High-octane tracks to fuel your workout. No skips, no mercy.",
+    "genre_tags": ["hip-hop", "trap"],
+    "mood_tags": ["workout", "energetic"],
+    "cover_art_url": "/assets/stations/workout-energy.jpg",
+    "rotation_schedule": {
+      "frequency": "daily",
+      "time_of_day_target": "morning",
+      "days": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+    },
+    "tracklist": [
+      { "canonical_id": "dmx-x-gon-give-it-to-ya", "artist": "DMX", "title": "X Gon' Give It to Ya", "duration_ms": 244000 },
+      { "canonical_id": "denzel-curry-ultimate", "artist": "Denzel Curry", "title": "Ultimate", "duration_ms": 175000 },
+      { "canonical_id": "city-girls-act-up", "artist": "City Girls", "title": "Act Up", "duration_ms": 213000 },
+      { "canonical_id": "flockaveli-hard-in-da-paint", "artist": "Waka Flocka Flame", "title": "Hard in da Paint", "duration_ms": 227000 },
+      { "canonical_id": "meek-mill-dreams-and-nightmares", "artist": "Meek Mill", "title": "Dreams and Nightmares", "duration_ms": 282000 },
+      { "canonical_id": "lil-uzi-vert-xo-tour-llif3", "artist": "Lil Uzi Vert", "title": "XO Tour Llif3", "duration_ms": 183000 },
+      { "canonical_id": "kanye-west-stronger", "artist": "Kanye West", "title": "Stronger", "duration_ms": 312000 },
+      { "canonical_id": "eminem-lose-yourself", "artist": "Eminem", "title": "Lose Yourself", "duration_ms": 326000 },
+      { "canonical_id": "migos-fight-night", "artist": "Migos", "title": "Fight Night", "duration_ms": 290000 },
+      { "canonical_id": "playboi-carti-magnolia", "artist": "Playboi Carti", "title": "Magnolia", "duration_ms": 182000 },
+      { "canonical_id": "rico-nasty-smack-a-bitch", "artist": "Rico Nasty", "title": "Smack a Bitch", "duration_ms": 157000 },
+      { "canonical_id": "jpegmafia-bald", "artist": "JPEGMAFIA", "title": "BALD!", "duration_ms": 186000 }
+    ],
+    "provider_availability": {
+      "apple_music": {},
+      "spotify": {}
+    }
+  }
+]

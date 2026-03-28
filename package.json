@@ -2,6 +2,9 @@
   "name": "onay",
   "version": "0.1.0",
   "private": true,
+  "scripts": {
+    "seed": "tsx scripts/seed/seed.ts"
+  },
   "workspaces": [
     "apps/mobile",
     "apps/tools",
