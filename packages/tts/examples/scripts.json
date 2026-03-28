@@ -1,0 +1,54 @@
+{
+  "scripts": [
+    {
+      "text": "You're locked into ONAY Radio, and we're just getting started.",
+      "type": "show_intro",
+      "genre_tags": ["hip-hop", "r&b"],
+      "mood_tags": ["energetic", "late-night"],
+      "energy_level": 4,
+      "takes": [
+        { "exaggeration": 0.3 },
+        { "exaggeration": 0.6 },
+        { "exaggeration": 0.9 }
+      ]
+    },
+    {
+      "text": "That was SZA taking us somewhere real. And up next, we're staying in that lane.",
+      "type": "transition",
+      "genre_tags": ["r&b"],
+      "mood_tags": ["chill", "reflective"],
+      "artist_refs": ["SZA"],
+      "energy_level": 3
+    },
+    {
+      "text": "Fun fact — did you know Frank Ocean recorded Blonde in like four different countries? The man doesn't sit still.",
+      "type": "fun_fact",
+      "genre_tags": ["r&b", "alternative"],
+      "mood_tags": ["conversational"],
+      "artist_refs": ["Frank Ocean"],
+      "energy_level": 2,
+      "takes": [
+        { "exaggeration": 0.4 },
+        { "exaggeration": 0.7 }
+      ]
+    },
+    {
+      "text": "Alright, it's getting late, and this is exactly the kind of music you need right now. Trust me.",
+      "type": "time_of_day",
+      "genre_tags": ["hip-hop", "r&b"],
+      "mood_tags": ["late-night", "intimate"],
+      "energy_level": 2
+    },
+    {
+      "text": "That's a wrap for tonight. ONAY Radio, signing off. Stay golden.",
+      "type": "show_outro",
+      "genre_tags": ["hip-hop", "r&b"],
+      "mood_tags": ["warm", "closing"],
+      "energy_level": 3,
+      "takes": [
+        { "exaggeration": 0.5 },
+        { "exaggeration": 0.8 }
+      ]
+    }
+  ]
+}
