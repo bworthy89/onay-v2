@@ -171,6 +171,38 @@ The Station Manager pre-computes availability mappings at station build time.
 - **Voice cloning:** All generation uses Onay's reference WAV (~10 seconds) for consistent voice identity.
 - **Emotion exaggeration:** Parameter controls intensity. Vary across takes for the same script to get different energy levels.
 
+### Batch Generation Pipeline (`packages/tts`)
+
+The TTS package provides a batch pipeline for producing segments. The real Chatterbox engine is swapped in via the `ChatterboxEngine` interface — a `PlaceholderChatterboxEngine` stub generates valid silent WAV files for development/testing.
+
+**GenerationJob** — input format for the batch pipeline:
+
+```typescript
+interface GenerationJob {
+  script_text: string;           // The script to synthesize
+  type: SegmentType;             // Segment type (show_intro, transition, etc.)
+  genre_tags: string[];
+  mood_tags: string[];
+  artist_refs: string[];
+  energy_level: number;          // 1-5
+  takes: number;                 // Number of takes per exaggeration level
+  exaggeration_levels: number[]; // e.g., [0.3, 0.5, 0.7]
+}
+```
+
+Total audio files per job = `takes × exaggeration_levels.length`. Each take gets a unique segment ID from `@onay/core`'s `generateSegmentId()`.
+
+**CLI usage:**
+
+```bash
+npx tsx packages/tts/src/cli.ts \
+  --input jobs.json \
+  --output ./output \
+  --ref-wav ./onay-ref.wav
+```
+
+Output structure: `output/{segment_id}/take-{n}.wav` + `output/manifest.json` mapping every file to its full `Segment` metadata (quality_score starts at 0, filled by quality scoring later).
+
 ## Assembly Rules
 
 When assembling a show timeline, follow these constraints:
@@ -263,8 +295,48 @@ Each issue should be completable in 1-3 coding sessions. If an issue takes more 
 - Has a clear "done" state you can verify
 - Tests can be written and passing in the same session
 
+## What's Built
+
+### Completed (merged to dev)
+
+| Component | PR | What It Does |
+|---|---|---|
+| Core types | #21 | `SegmentType`, `Segment`, `Station`, `TimelineManifest`, `TracklistEntry`, `Vibe` — all in `packages/core/src/types.ts` |
+| API init | #22 | Express + TypeScript server, CORS, typed error handler, health endpoint (`GET /health`), better-sqlite3 with WAL mode |
+| Seed data | #23 | `scripts/seed/seed.ts` + JSON fixtures (2 stations, 24 tracks, ~100 segments). Depends on Station/Segment CRUD endpoints that don't exist yet |
+
+### Pending feature branches (ready to merge)
+
+| Branch | Commit | What It Adds |
+|---|---|---|
+| `feature/core-utils` | `2a8e317` | `generateSegmentId()`, `filterSegments()`, `validateSegment()` in `packages/core/src/utils.ts` + `validation.ts`. Full test coverage |
+| `feature/api-schema` | `a0f1757` | Database schema (`services/api/migrations/001-initial-schema.sql`) + migration runner (`src/migrate.ts`). Tables: stations, station_tracks, segments, timelines, timeline_history |
+| `feature/tts-batch` | `6ad8fff` | Full batch TTS pipeline with `ChatterboxEngine` interface, `PlaceholderChatterboxEngine` stub, `runBatch()`, CLI. Full test coverage |
+
+### Not yet started
+
+- Station CRUD endpoints (`POST/GET/PUT/DELETE /api/stations`)
+- Track management endpoints (`POST /api/stations/:id/tracks`)
+- Segment CRUD endpoints (`GET /api/segments` with filtering)
+- Timeline/Assembly endpoints
+- Assembly pipeline (`packages/assembly/` — empty)
+- Tools web app (`apps/tools/` — empty)
+- Mobile app stub implementations (interfaces in place, bodies unimplemented)
+
+### Database Schema (from `feature/api-schema`)
+
+```sql
+-- stations: id, name, description, genre_tags, mood_tags, cover_art_url, rotation_schedule
+-- station_tracks: station_id, canonical_id, artist, title, isrc, position, duration_ms, apple_music_id, spotify_id
+-- segments: segment_id (PK), type, genre_tags, mood_tags, artist_refs, energy_level, duration_ms, quality_score, exaggeration_level, usage_count, audio_url, script_text
+-- timelines: id, station_id, entries (JSON), created_at, published_at
+-- timeline_history: id, timeline_id, station_id, published_at
+```
+
 ## Current Phase
 
 **Phase 1: Foundation** — Set up Chatterbox, define schemas, build Segment Studio MVP, produce initial segment library (300-500 segments for hip-hop/R&B), build Station Manager MVP, build assembly pipeline MVP, deploy first test station.
+
+**Next up:** Merge pending feature branches → build Station CRUD endpoints → build Segment endpoints → run seed script → build assembly pipeline.
 
 **Phase 2: Mobile App** — Run v1 → v2 UI migration (`v2-migration/migrate-ui.sh`). Implement stubs against v2 backend. Priority order: Storage → AuthService → api → MusicProvider → SessionEngine/QueueManager (consume timeline manifests) → AudioCoordinator/SegmentController (segment playback). Do NOT rebuild or significantly modify the UI — implement the stub interfaces so existing screens work with the new backend.
