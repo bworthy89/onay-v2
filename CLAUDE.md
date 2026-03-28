@@ -207,6 +207,62 @@ User-curated playlists that run through the same assembly pipeline. Sharing, fol
 - **Type safety:** Strict TypeScript throughout (`strict: true`)
 - **Versioning:** Semver — current target is v0.1.0 (Chatterbox + schema + first segments)
 
+## Development Workflow
+
+Work is tracked via GitHub Issues with a GitHub Projects kanban board. Every coding session maps to a single issue.
+
+### Session pattern
+
+1. Pick the next issue from the board (move it to "In Progress").
+2. Create a feature branch: `git checkout -b feature/issue-short-name dev`
+3. Open Claude Code. Prompt references the issue number and scope.
+4. Build the feature. Commit incrementally on the branch.
+5. Run tests: `npm run test` in the relevant workspace.
+6. Push the branch. Open a PR into `dev`.
+7. Review the diff. Squash merge. Delete the branch.
+8. Close the issue (move to "Done").
+
+### Prompt pattern for Claude Code
+
+Each prompt should be scoped to ONE issue. Start with "Read CLAUDE.md" so Claude Code picks up the full project context. Reference the specific issue and what needs to be built.
+
+**Examples:**
+
+```
+Read CLAUDE.md. Working on issue #1 — define shared TypeScript types in
+packages/core/src/types.ts. Create SegmentType enum, Segment interface,
+Station interface, TimelineManifest interface, and all supporting types
+from the Key Data Structures section. Export everything from index.ts.
+Verify with tsc --noEmit.
+```
+
+```
+Read CLAUDE.md. Working on issue #5 — build Station CRUD endpoints in
+services/api. Need POST/GET/PUT/DELETE for stations with the Station
+type from packages/core. Store in SQLite. Include input validation and
+error handling. Write tests with Vitest + Supertest.
+```
+
+```
+Read CLAUDE.md. Working on issue #10 — build the segment selection engine
+in packages/assembly/src/selector.ts. Follow all assembly rules listed
+in the Assembly Rules section. Write extensive tests — test every rule
+individually. Use deterministic seeding.
+```
+
+**Rules:**
+- One issue per session. Don't ask Claude Code to build multiple features at once.
+- Always reference CLAUDE.md — it contains the types, schemas, and rules Claude Code needs.
+- For deeper context on a specific feature, point to the PRD: "Also read docs/onay-prd-v2.md section 5.2 for full Segment Studio requirements."
+- Keep prompts specific. "Build the API" is too broad. "Build Station CRUD endpoints with tests" is right.
+
+### Issue sizing
+
+Each issue should be completable in 1-3 coding sessions. If an issue takes more than 3 sessions, it's too big — break it into sub-issues. Good signs an issue is the right size:
+- Touches 1-2 files primarily
+- Has a clear "done" state you can verify
+- Tests can be written and passing in the same session
+
 ## Current Phase
 
 **Phase 1: Foundation** — Set up Chatterbox, define schemas, build Segment Studio MVP, produce initial segment library (300-500 segments for hip-hop/R&B), build Station Manager MVP, build assembly pipeline MVP, deploy first test station.

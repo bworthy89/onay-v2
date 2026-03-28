@@ -461,7 +461,30 @@ Each issue should be scoped to something completable in one to three coding sess
 - `[tools] Segment Studio UI — review queue with audio playback`
 - `[tools] Segment Studio UI — approve/reject/regenerate actions`
 
-### 11.4 Testing Strategy
+### 11.4 Claude Code Development Workflow
+
+Each coding session maps to a single GitHub issue. The workflow is:
+
+1. Pick the next issue from the project board (move it to "In Progress").
+2. Create a feature branch: `git checkout -b feature/issue-short-name dev`
+3. Open Claude Code. Prompt references the issue number and scope.
+4. Build the feature. Commit incrementally on the branch.
+5. Run tests in the relevant workspace.
+6. Push the branch. Open a PR into `dev`.
+7. Review the diff. Squash merge. Delete the branch.
+8. Close the issue (move to "Done").
+
+**Prompt pattern:** Each prompt should be scoped to ONE issue. Always start with "Read CLAUDE.md" so Claude Code picks up the full project context, then reference the specific issue and what needs to be built. For deeper context on a specific feature, point to the PRD: "Also read docs/onay-prd-v2.md section 5.2 for full Segment Studio requirements."
+
+**Examples:**
+
+- *"Read CLAUDE.md. Working on issue #1 — define shared TypeScript types in packages/core/src/types.ts. Create SegmentType enum, Segment interface, Station interface, TimelineManifest interface, and all supporting types from the Key Data Structures section. Export everything from index.ts. Verify with tsc --noEmit."*
+- *"Read CLAUDE.md. Working on issue #5 — build Station CRUD endpoints in services/api. Need POST/GET/PUT/DELETE for stations with the Station type from packages/core. Store in SQLite. Include input validation and error handling. Write tests with Vitest + Supertest."*
+- *"Read CLAUDE.md. Working on issue #10 — build the segment selection engine in packages/assembly/src/selector.ts. Follow all assembly rules listed in the Assembly Rules section. Write extensive tests — test every rule individually. Use deterministic seeding."*
+
+**Rules:** One issue per session. Don't ask Claude Code to build multiple features at once. Keep prompts specific — "Build the API" is too broad, "Build Station CRUD endpoints with tests" is right.
+
+### 11.5 Testing Strategy
 
 Three layers, proportional to what matters most:
 
@@ -471,7 +494,7 @@ Three layers, proportional to what matters most:
 
 Skip end-to-end testing of the mobile app initially. TestFlight with real listeners provides better signal than automated UI tests during early development.
 
-### 11.5 CI/CD
+### 11.6 CI/CD
 
 GitHub Actions with two pipelines:
 
@@ -490,13 +513,13 @@ GitHub Actions with two pipelines:
 
 EAS Build from Expo handles the iOS build pipeline. Push to `main`, GitHub Actions triggers an EAS build, and a new TestFlight build appears automatically. No manual Xcode builds.
 
-### 11.6 Environment Setup
+### 11.7 Environment Setup
 
 - **Local development (gaming PC):** Chatterbox for TTS, Ollama for LLM, full monorepo. Primary workstation for all development.
 - **VPS (Hostinger):** Runs the production API, serves segment audio, hosts timeline manifests. Deploy from `main` only.
 - **Mobile:** Expo Go for development, EAS Build for TestFlight. Run `npx expo start` and test on physical device.
 
-### 11.7 Versioning
+### 11.8 Versioning
 
 Semantic versioning with milestones tied to minor versions:
 
@@ -507,7 +530,7 @@ Semantic versioning with milestones tied to minor versions:
 - `v0.5.0` — Multiple stations, TestFlight beta
 - `v1.0.0` — App Store submission
 
-### 11.8 V1 → V2 UI Migration
+### 11.9 V1 → V2 UI Migration
 
 The mobile app UI is carried over from v1, not rebuilt from scratch. A migration kit (`v2-migration/`) extracts all UI-related files from the v1 codebase and provides stub implementations for every service and engine dependency. This preserves the visual identity and routing structure while allowing the backend to be completely replaced.
 
