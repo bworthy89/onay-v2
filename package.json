@@ -5,6 +5,9 @@
   "scripts": {
     "seed": "tsx scripts/seed/seed.ts"
   },
+  "devDependencies": {
+    "tsx": "^4.19.0"
+  },
   "workspaces": [
     "apps/mobile",
     "apps/tools",

@@ -24,11 +24,23 @@ function loadJson<T>(filename: string): T {
 
 async function post(path: string, body: unknown): Promise<{ ok: boolean; status: number; data: unknown }> {
   const url = `${API_BASE}${path}`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10_000);
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    clearTimeout(timer);
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, status: 0, data: { error: `Request failed: ${message}` } };
+  }
+  clearTimeout(timer);
 
   let data: unknown;
   try {
