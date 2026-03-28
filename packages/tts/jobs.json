@@ -1,0 +1,52 @@
+[
+  {
+    "script_text": "Welcome to Onay Radio. I'm your host, and tonight we're diving deep into the smoothest R&B this side of the city. Buckle up.",
+    "type": "show_intro",
+    "genre_tags": ["r&b"],
+    "mood_tags": ["chill", "late-night"],
+    "artist_refs": [],
+    "energy_level": 3,
+    "takes": 2,
+    "exaggeration_levels": [0.3, 0.5, 0.7]
+  },
+  {
+    "script_text": "Now let me tell you something about SZA. This woman can take a feeling you didn't even know you had and turn it into a whole anthem.",
+    "type": "artist_shoutout",
+    "genre_tags": ["r&b", "hip-hop"],
+    "mood_tags": ["chill"],
+    "artist_refs": ["SZA"],
+    "energy_level": 3,
+    "takes": 1,
+    "exaggeration_levels": [0.4, 0.6]
+  },
+  {
+    "script_text": "Alright, we're switching gears. The energy's about to go up. Way up. You ready?",
+    "type": "transition",
+    "genre_tags": ["hip-hop"],
+    "mood_tags": ["hype", "energetic"],
+    "artist_refs": [],
+    "energy_level": 5,
+    "takes": 1,
+    "exaggeration_levels": [0.5, 0.8]
+  },
+  {
+    "script_text": "Fun fact: did you know Kendrick Lamar recorded the entire Section.80 mixtape in his closet? Look where that got him.",
+    "type": "fun_fact",
+    "genre_tags": ["hip-hop"],
+    "mood_tags": ["chill"],
+    "artist_refs": ["Kendrick Lamar"],
+    "energy_level": 2,
+    "takes": 1,
+    "exaggeration_levels": [0.3, 0.5]
+  },
+  {
+    "script_text": "That's all for tonight, family. Thanks for riding with me. Same time tomorrow. Onay out.",
+    "type": "show_outro",
+    "genre_tags": ["r&b", "hip-hop"],
+    "mood_tags": ["chill", "late-night"],
+    "artist_refs": [],
+    "energy_level": 2,
+    "takes": 2,
+    "exaggeration_levels": [0.3, 0.6]
+  }
+]
