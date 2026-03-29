@@ -339,25 +339,54 @@ Each issue should be completable in 1-3 coding sessions. If an issue takes more 
 | `feature/core-utils` | `2a8e317` | `generateSegmentId()`, `filterSegments()`, `validateSegment()` in `packages/core/src/utils.ts` + `validation.ts`. Full test coverage |
 | `feature/api-schema` | `a0f1757` | Database schema (`services/api/migrations/001-initial-schema.sql`) + migration runner (`src/migrate.ts`). Tables: stations, station_tracks, segments, timelines, timeline_history |
 | `feature/tts-batch` | `6ad8fff` | Full batch TTS pipeline with `ChatterboxEngine` interface, `PlaceholderChatterboxEngine` stub, `runBatch()`, CLI. Full test coverage |
-| `feature/tts-scriptgen` | WIP | LLM-powered script generation: `ScriptGenRequest` → `buildPrompt()` → `LLMClient` → `parseResponse()` → `GenerationJob[]`. Template bank (10-12 scripts per segment type in Onay's voice), `StubLLMClient`, graceful response parsing. 31 tests |
+| `feature/tts-scriptgen` | merged | LLM-powered script generation: `ScriptGenRequest` → `buildPrompt()` → `LLMClient` → `parseResponse()` → `GenerationJob[]`. Template bank (10-12 scripts per segment type in Onay's voice), `StubLLMClient`, graceful response parsing. 31 tests |
+| `feature/api-stations` | WIP | Station CRUD + track management + segment library endpoints. 68 integration tests |
+
+### API Endpoints (from `feature/api-stations`)
+
+**Station CRUD** (`services/api/src/routes/stations.ts`):
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/api/stations` | Create station (generates UUID, validates name) |
+| GET | `/api/stations` | List all stations (`?published=true` filter). No tracklist in listing |
+| GET | `/api/stations/:id` | Get station with full tracklist (joins station_tracks by position) |
+| PUT | `/api/stations/:id` | Partial update station metadata, bumps `updated_at` |
+| DELETE | `/api/stations/:id` | Delete station (cascade deletes tracks) |
+| POST | `/api/stations/:id/tracks` | Add track to station (auto-positions at end) |
+| PUT | `/api/stations/:id/tracks` | Replace entire tracklist (transactional) |
+| DELETE | `/api/stations/:id/tracks/:trackId` | Remove track, reorder remaining positions |
+
+**Segment Library** (`services/api/src/routes/segments.ts`):
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/api/segments` | Upload segment (multipart: metadata + audio file via multer, wav/mp3, 50MB limit) |
+| GET | `/api/segments` | Query with combinable filters: type, genre, mood, artist, energyMin/Max, qualityMin, search, limit, offset |
+| GET | `/api/segments/:id` | Get single segment |
+| PUT | `/api/segments/:id` | Update segment metadata (approve/reject, tags, quality score) |
+| DELETE | `/api/segments/:id` | Delete segment + audio file from disk |
+| POST | `/api/segments/bulk-approve` | Approve all pending segments with `quality_score >= threshold` |
+| GET | `/api/segments/stats` | Library stats: total, by_type counts, avg_quality, total_duration_ms |
+
+**DB response shape:** Station rows use `station_id` (mapped from DB `id`), JSON array columns are parsed to arrays. Segments include a `status` field (`pending`/`approved`/`rejected`) added via `002-segment-status.sql` migration.
+
+**Test setup:** `src/test-setup.ts` provides `createTestDb()` — creates an in-memory SQLite database with all migrations applied. Test files mock `db.js` via `vi.mock` and clean tables in `beforeEach`.
 
 ### Not yet started
 
-- Station CRUD endpoints (`POST/GET/PUT/DELETE /api/stations`)
-- Track management endpoints (`POST /api/stations/:id/tracks`)
-- Segment CRUD endpoints (`GET /api/segments` with filtering)
 - Timeline/Assembly endpoints
 - Assembly pipeline (`packages/assembly/` — empty)
 - Tools web app (`apps/tools/` — empty)
 - Mobile app stub implementations (interfaces in place, bodies unimplemented)
 
-### Database Schema (from `feature/api-schema`)
+### Database Schema (from `feature/api-schema` + `002-segment-status.sql`)
 
 ```sql
--- stations: id, name, description, genre_tags, mood_tags, cover_art_url, rotation_schedule
--- station_tracks: station_id, canonical_id, artist, title, isrc, position, duration_ms, apple_music_id, spotify_id
--- segments: segment_id (PK), type, genre_tags, mood_tags, artist_refs, energy_level, duration_ms, quality_score, exaggeration_level, usage_count, audio_url, script_text
--- timelines: id, station_id, entries (JSON), created_at, published_at
+-- stations: id, name, description, genre_tags, mood_tags, cover_art_url, rotation_schedule, is_published, created_at, updated_at
+-- station_tracks: id, station_id, position, canonical_id, artist, title, isrc, duration_ms, apple_music_id, spotify_id
+-- segments: segment_id (PK), type, genre_tags, mood_tags, artist_refs, energy_level, duration_ms, quality_score, exaggeration_level, usage_count, audio_url, script_text, status, created_at
+-- timelines: id, station_id, entries (JSON), created_at
 -- timeline_history: id, timeline_id, station_id, published_at
 ```
 
@@ -365,6 +394,6 @@ Each issue should be completable in 1-3 coding sessions. If an issue takes more 
 
 **Phase 1: Foundation** — Set up Chatterbox, define schemas, build Segment Studio MVP, produce initial segment library (300-500 segments for hip-hop/R&B), build Station Manager MVP, build assembly pipeline MVP, deploy first test station.
 
-**Next up:** Merge pending feature branches → build Station CRUD endpoints → build Segment endpoints → run seed script → build assembly pipeline.
+**Next up:** Merge pending feature branches → run seed script → build assembly pipeline.
 
 **Phase 2: Mobile App** — Run v1 → v2 UI migration (`v2-migration/migrate-ui.sh`). Implement stubs against v2 backend. Priority order: Storage → AuthService → api → MusicProvider → SessionEngine/QueueManager (consume timeline manifests) → AudioCoordinator/SegmentController (segment playback). Do NOT rebuild or significantly modify the UI — implement the stub interfaces so existing screens work with the new backend.
