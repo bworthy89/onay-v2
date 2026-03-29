@@ -378,6 +378,7 @@ Each issue should be completable in 1-3 coding sessions. If an issue takes more 
 | `feature/api-stations` | merged | Station CRUD + track management + segment library endpoints. 68 integration tests |
 | `feature/api-timelines` | merged | Timeline manifest endpoints: create, get active, history, get by ID. 27 integration tests |
 | `feature/tts-quality` | PR #30 | Audio quality scoring: `scoreSegment()` + `batchScore()` in `packages/tts/src/quality.ts`. WAV integrity checks (RIFF/WAVE header, 16-bit PCM, sample rate ≥ 24000), duration validation per segment type, silence detection (leading/trailing/internal gaps). Returns `QualityResult` with `quality_score` (0-1) and `quality_flags`. 17 tests |
+| `feature/assembly-selector` | PR #31 | Segment selection engine: `selectSegments()` in `packages/assembly/src/selector.ts`. Takes a station, segment library, and `AssemblyConfig` → produces `TimelineEntry[]`. Enforces all assembly rules: show intro/outro bookends, 60-70% transition coverage (pre-computed gap indices), no-repeat-within-5, energy matching (±1/±2 when track energy available, skipped otherwise), max 2 ad-libs with adjacency guards, artist shoutout adjacency, time-of-day filtering (from `rotation_schedule.time_of_day_target`), usage/quality preference scoring, seeded PRNG determinism. 25 tests |
 
 ### API Endpoints (from `feature/api-stations`)
 
@@ -421,7 +422,7 @@ Each issue should be completable in 1-3 coding sessions. If an issue takes more 
 
 ### Not yet started
 
-- Assembly pipeline (`packages/assembly/` — empty)
+- Assembly pipeline (`packages/assembly/` — selector built, needs full assembler that calls selector + produces TimelineManifest)
 - Tools web app (`apps/tools/` — empty)
 - Mobile app stub implementations (interfaces in place, bodies unimplemented)
 

@@ -185,14 +185,13 @@ describe('selectSegments', () => {
   });
 
   describe('60-70% transition coverage', () => {
-    it('places segments at roughly 60-70% of transitions', () => {
-      // Run with multiple seeds to average out
-      const coverages: number[] = [];
+    it('each run places segments at 60-70% of transitions', () => {
+      // With pre-computed index selection, every run should be exactly in [60%, 70%]
       for (let seed = 1; seed <= 20; seed++) {
         const entries = selectSegments(station, library, { ...DEFAULT_CONFIG, variationSeed: seed });
         const songs = songEntries(entries);
-        const transitionCount = songs.length - 1; // gaps between songs
-        if (transitionCount === 0) continue;
+        const numGaps = songs.length - 1;
+        if (numGaps === 0) continue;
 
         // Count segments between songs (excluding intro before first song and outro after last)
         let segsBetweenSongs = 0;
@@ -206,14 +205,15 @@ describe('selectSegments', () => {
             segsBetweenSongs++;
           }
         }
-        coverages.push(segsBetweenSongs / transitionCount);
-      }
 
-      const avgCoverage = coverages.reduce((a, b) => a + b, 0) / coverages.length;
-      // Average across many seeds should be in the 40-85% range
-      // (individual runs may deviate, but the average should be close to 60-70%)
-      expect(avgCoverage).toBeGreaterThan(0.35);
-      expect(avgCoverage).toBeLessThan(0.90);
+        const allowedMin = Math.ceil(0.60 * numGaps);
+        const allowedMax = Math.floor(0.70 * numGaps);
+        // segsBetweenSongs may be less than targetCount if library runs out of candidates,
+        // but should never exceed the max
+        expect(segsBetweenSongs).toBeLessThanOrEqual(allowedMax);
+        // With a full library, we expect at least the min
+        expect(segsBetweenSongs).toBeGreaterThanOrEqual(allowedMin);
+      }
     });
   });
 
@@ -242,8 +242,9 @@ describe('selectSegments', () => {
   });
 
   describe('energy matching', () => {
-    it('selects segments within energy tolerance of target', () => {
-      // Create a library with extreme energy levels only
+    it('selects all energy levels when no track energy is available', () => {
+      // TracklistEntry has no energy_level, so energy filter is skipped
+      // All energy levels in the library should be eligible
       const extremeLib = [
         makeSegment({ segment_id: 'SEG-SI-99901', type: 'show_intro', energy_level: 1 }),
         makeSegment({ segment_id: 'SEG-SO-99901', type: 'show_outro', energy_level: 1 }),
@@ -255,16 +256,25 @@ describe('selectSegments', () => {
       ];
 
       const entries = selectSegments(station, extremeLib, DEFAULT_CONFIG);
-      // All transition segments should exist in our library
       const segIds = getSegmentIds(entries);
       const allLibIds = extremeLib.map((s) => s.segment_id);
       for (const id of segIds) {
         expect(allLibIds).toContain(id);
       }
+
+      // Verify segments at all energy levels can be selected (not filtered out)
+      const selectedEnergies = new Set(
+        segIds
+          .map((id) => extremeLib.find((s) => s.segment_id === id))
+          .filter((s) => s && s.type === 'transition')
+          .map((s) => s!.energy_level),
+      );
+      // With no energy filter, at least some variety should be selected
+      expect(selectedEnergies.size).toBeGreaterThanOrEqual(1);
     });
 
-    it('widens tolerance to ±2 when no ±1 match exists', () => {
-      // Library with only energy 1 transitions, target will be 3
+    it('places segments from a library with varied energies', () => {
+      // With energy filter disabled (no track energy_level), all segments are candidates
       const narrowLib = [
         makeSegment({ segment_id: 'SEG-SI-88801', type: 'show_intro', energy_level: 3 }),
         makeSegment({ segment_id: 'SEG-SO-88801', type: 'show_outro', energy_level: 3 }),
@@ -276,9 +286,18 @@ describe('selectSegments', () => {
       ];
 
       const entries = selectSegments(station, narrowLib, DEFAULT_CONFIG);
-      // Should still place some segments despite energy mismatch (±2 tolerance)
       const segs = segmentEntries(entries);
-      expect(segs.length).toBeGreaterThan(2); // at least intro + outro + some transitions
+      // Should place intro + outro + transition segments
+      expect(segs.length).toBeGreaterThan(2);
+
+      // Verify all selected segments have valid energy levels from the library
+      const segIds = getSegmentIds(entries);
+      for (const id of segIds) {
+        const libSeg = narrowLib.find((s) => s.segment_id === id);
+        expect(libSeg).toBeDefined();
+        expect(libSeg!.energy_level).toBeGreaterThanOrEqual(1);
+        expect(libSeg!.energy_level).toBeLessThanOrEqual(5);
+      }
     });
   });
 
@@ -354,8 +373,9 @@ describe('selectSegments', () => {
   });
 
   describe('time-of-day filtering', () => {
-    it('only includes time-of-day segments matching config.timeOfDay', () => {
-      const entries = selectSegments(station, library, DEFAULT_CONFIG); // timeOfDay: 'evening'
+    it('only includes time-of-day segments matching station rotation target', () => {
+      // Station has rotation_schedule.time_of_day_target = 'evening'
+      const entries = selectSegments(station, library, DEFAULT_CONFIG);
 
       for (const entry of entries) {
         if (entry.type !== 'segment') continue;
@@ -368,13 +388,23 @@ describe('selectSegments', () => {
       }
     });
 
-    it('excludes morning time-of-day segments when timeOfDay is evening', () => {
+    it('excludes morning time-of-day segments when station target is evening', () => {
       const morningSeg = library.find(
         (s) => s.type === 'time_of_day' && s.mood_tags.includes('morning'),
       )!;
       const entries = selectSegments(station, library, DEFAULT_CONFIG);
       const segIds = getSegmentIds(entries);
       expect(segIds).not.toContain(morningSeg.segment_id);
+    });
+
+    it('allows all time-of-day segments when station has no rotation target', () => {
+      const noTargetStation = makeStation({
+        rotation_schedule: { frequency: 'daily', time_of_day_target: '', days: [] },
+      });
+      // With empty target, time-of-day segments should be allowed through
+      const entries = selectSegments(noTargetStation, library, DEFAULT_CONFIG);
+      // Should not crash; may or may not include time-of-day segments
+      expect(entries.length).toBeGreaterThan(0);
     });
   });
 

@@ -81,7 +81,7 @@ interface CandidateContext {
   recentIds: string[];
   adLibCount: number;
   lastEntryWasSegment: boolean;
-  energyTarget: number;
+  energyTarget: number | null;
   config: AssemblyConfig;
   currentTrack: TracklistEntry | null;
   nextTrack: TracklistEntry | null;
@@ -100,8 +100,8 @@ function getCandidates(
     // No repeat within 5 slots
     if (ctx.recentIds.includes(seg.segment_id)) return false;
 
-    // Energy matching
-    if (Math.abs(seg.energy_level - ctx.energyTarget) > energyTolerance) return false;
+    // Energy matching (skip when target is unknown)
+    if (ctx.energyTarget !== null && Math.abs(seg.energy_level - ctx.energyTarget) > energyTolerance) return false;
 
     // Genre preference
     if (!matchesStationGenre(seg, ctx.station)) return false;
@@ -123,10 +123,12 @@ function getCandidates(
       if (!hasMatch) return false;
     }
 
-    // Time-of-day: must match config
+    // Time-of-day: must match station's rotation schedule target
     if (seg.type === 'time_of_day') {
+      const target = ctx.station.rotation_schedule?.time_of_day_target;
+      if (!target) return true; // allow if station has no target
       const segTimeHints = [...seg.genre_tags, ...seg.mood_tags].map((t) => t.toLowerCase());
-      if (!segTimeHints.includes(ctx.config.timeOfDay.toLowerCase())) return false;
+      if (!segTimeHints.includes(target.toLowerCase())) return false;
     }
 
     return true;
@@ -157,7 +159,7 @@ export function selectSegments(
   const useSegment = (seg: Segment) => {
     entries.push(segmentToEntry(seg));
     recentIds.push(seg.segment_id);
-    if (recentIds.length >= 5) recentIds.shift();
+    if (recentIds.length > 5) recentIds.shift();
     if (seg.type === 'ad_lib') adLibCount++;
     usageBumps.set(seg.segment_id, (usageBumps.get(seg.segment_id) ?? 0) + 1);
     lastEntryWasSegment = true;
@@ -175,7 +177,7 @@ export function selectSegments(
     recentIds,
     adLibCount,
     lastEntryWasSegment: false,
-    energyTarget: 3,
+    energyTarget: null,
     config,
     currentTrack: null,
     nextTrack: tracklist[0] ?? null,
@@ -190,7 +192,23 @@ export function selectSegments(
     useSegment(pickBest(introCandidates, rng, usageBumps));
   }
 
-  // --- 2. Songs with interleaved segments ---
+  // --- 2. Pre-compute which transition gaps get segments (60-70% of gaps) ---
+  const numGaps = tracklist.length - 1;
+  const segmentGaps = new Set<number>();
+  if (numGaps > 0) {
+    const allowedMin = Math.ceil(0.60 * numGaps);
+    const allowedMax = Math.floor(0.70 * numGaps);
+    const targetCount = allowedMin + Math.floor(rng() * (allowedMax - allowedMin + 1));
+
+    // Fisher-Yates partial shuffle to pick targetCount unique gap indices
+    const indices = Array.from({ length: numGaps }, (_, i) => i);
+    for (let j = 0; j < targetCount; j++) {
+      const swap = j + Math.floor(rng() * (numGaps - j));
+      [indices[j], indices[swap]] = [indices[swap], indices[j]];
+      segmentGaps.add(indices[j]);
+    }
+  }
+
   for (let i = 0; i < tracklist.length; i++) {
     const track = tracklist[i];
     useSong(track);
@@ -198,14 +216,14 @@ export function selectSegments(
     // Don't place a segment after the last song (outro goes there)
     if (i === tracklist.length - 1) break;
 
-    // Determine if this transition gets a segment (target ~65% = midpoint of 60-70%)
-    if (rng() > 0.65) continue;
+    // Skip transitions not selected for a segment
+    if (!segmentGaps.has(i)) continue;
 
     const nextTrack = tracklist[i + 1];
     const isLastTransition = i === tracklist.length - 2;
 
-    // TracklistEntry has no energy_level — use neutral 3, let library distribution provide variety
-    const energyTarget = 3;
+    // TracklistEntry has no energy_level — skip energy filtering
+    const energyTarget: number | null = null;
 
     const ctx: CandidateContext = {
       station,
@@ -231,9 +249,9 @@ export function selectSegments(
       ...(isLastTransition ? [] : ['ad_lib' as SegmentType]),
     ];
 
-    // Try with ±1 tolerance first, then ±2
+    // When energyTarget is known, try ±1 then ±2; when null, energy filter is skipped
     let candidates = getCandidates(library, transitionTypes, ctx, 1);
-    if (candidates.length === 0) {
+    if (candidates.length === 0 && ctx.energyTarget !== null) {
       candidates = getCandidates(library, transitionTypes, ctx, 2);
     }
 
@@ -248,7 +266,7 @@ export function selectSegments(
     recentIds,
     adLibCount,
     lastEntryWasSegment,
-    energyTarget: 3,
+    energyTarget: null,
     config,
     currentTrack: tracklist[tracklist.length - 1],
     nextTrack: null,
