@@ -131,6 +131,7 @@ function buildLibrary(): Segment[] {
 const DEFAULT_CONFIG: AssemblyConfig = {
   timeOfDay: 'evening',
   variationSeed: 42,
+  allowStubs: true,
 };
 
 // ---------------------------------------------------------------------------
@@ -255,11 +256,13 @@ describe('selectSegments', () => {
       ];
 
       const entries = await selectSegments(station, extremeLib, DEFAULT_CONFIG);
-      // All transition segments should exist in our library
+      // All segments should either come from our library or be bridged (auto-generated)
       const segIds = getSegmentIds(entries);
       const allLibIds = extremeLib.map((s) => s.segment_id);
       for (const id of segIds) {
-        expect(allLibIds).toContain(id);
+        const fromLibrary = allLibIds.includes(id);
+        const bridged = /^SEG-TR-\d{5}$/.test(id) && !allLibIds.includes(id);
+        expect(fromLibrary || bridged).toBe(true);
       }
     });
 
@@ -411,8 +414,19 @@ describe('selectSegments', () => {
 
     it('handles an empty library gracefully', async () => {
       const entries = await selectSegments(station, [], DEFAULT_CONFIG);
-      // All songs present, bridged segments may be generated for transitions
+      // All songs present
       expect(songEntries(entries)).toHaveLength(15);
+      // Synthesized boundaries: first entry is show_intro, last is show_outro
+      const segs = segmentEntries(entries) as Extract<TimelineEntry, { type: 'segment' }>[];
+      expect(segs.length).toBeGreaterThanOrEqual(2);
+      const firstSeg = segs[0];
+      const lastSeg = segs[segs.length - 1];
+      // Verify boundary segment IDs match show_intro / show_outro patterns
+      expect(firstSeg.segment_id).toMatch(/^SEG-SI-/);
+      expect(lastSeg.segment_id).toMatch(/^SEG-SO-/);
+      // First entry overall is the intro segment, last entry overall is the outro
+      expect(entries[0]).toBe(firstSeg);
+      expect(entries[entries.length - 1]).toBe(lastSeg);
     });
 
     it('handles an empty tracklist', async () => {

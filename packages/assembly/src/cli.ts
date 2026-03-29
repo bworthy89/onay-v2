@@ -89,6 +89,8 @@ async function main() {
   const config: AssemblyConfig = {
     timeOfDay: station.rotation_schedule?.time_of_day_target ?? 'evening',
     variationSeed: Date.now(),
+    // TODO: Replace with real LLM/TTS providers once Ollama/Chatterbox are integrated
+    allowStubs: true,
   };
   const entries = await selectSegments(station, segments, config);
 

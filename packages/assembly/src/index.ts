@@ -8,4 +8,5 @@ export {
   StubTTSProvider,
   detectLowConfidence,
   generateBridge,
+  synthesizeBoundary,
 } from './bridging';

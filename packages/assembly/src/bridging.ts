@@ -117,10 +117,56 @@ export class StubTTSProvider implements TTSProvider {
     // Build the WAV but don't write to disk — in tests the audioPath is a placeholder
     buildSilentWav(estimated);
     return {
-      audioPath: `stub://bridging/${Date.now()}.wav`,
+      audioPath: `stub://bridging/${hashString(script)}.wav`,
       duration_ms: estimated,
     };
   }
+}
+
+// ---------------------------------------------------------------------------
+// Boundary segment synthesis (show_intro / show_outro)
+// ---------------------------------------------------------------------------
+
+const INTRO_TEMPLATES = [
+  "What's good, you're locked in with Onay — let's get this started.",
+  "Welcome back, it's Onay on the ones and twos — we got a vibe tonight.",
+  "You already know what it is — Onay here, and we're about to set it off.",
+];
+
+const OUTRO_TEMPLATES = [
+  "That's a wrap for now — Onay signing off. Stay smooth out there.",
+  "We out. Onay loves you. Catch you on the next one.",
+  "And that's the show — Onay saying peace. Keep the vibe going.",
+];
+
+export async function synthesizeBoundary(
+  type: 'show_intro' | 'show_outro',
+  stationName: string,
+  stationGenre: string[],
+  stationMood: string[],
+  tts: TTSProvider,
+): Promise<Segment> {
+  const templates = type === 'show_intro' ? INTRO_TEMPLATES : OUTRO_TEMPLATES;
+  const idx = hashString(stationName) % templates.length;
+  const script = templates[idx];
+
+  const { audioPath, duration_ms } = await tts.generateSegment(script, type);
+
+  return {
+    segment_id: generateSegmentId(type),
+    type,
+    genre_tags: [...stationGenre],
+    mood_tags: [...stationMood],
+    artist_refs: [],
+    energy_level: 3,
+    duration_ms,
+    quality_score: 0.7,
+    exaggeration_level: 0.5,
+    created_at: new Date().toISOString(),
+    usage_count: 0,
+    audio_url: audioPath,
+    script_text: script,
+  };
 }
 
 // ---------------------------------------------------------------------------

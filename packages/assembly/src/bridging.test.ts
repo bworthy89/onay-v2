@@ -5,6 +5,7 @@ import {
   StubTTSProvider,
   detectLowConfidence,
   generateBridge,
+  synthesizeBoundary,
   type BridgingContext,
   type LLMProvider,
   type TTSProvider,
@@ -98,11 +99,14 @@ describe('StubLLMProvider', () => {
 describe('StubTTSProvider', () => {
   const tts = new StubTTSProvider();
 
-  it('returns an audioPath and duration_ms', async () => {
+  it('returns a deterministic audioPath and duration_ms', async () => {
     const result = await tts.generateSegment('Test script for bridging', 'transition');
-    expect(result.audioPath).toMatch(/^stub:\/\/bridging\//);
+    expect(result.audioPath).toMatch(/^stub:\/\/bridging\/\d+\.wav$/);
     expect(result.duration_ms).toBeGreaterThanOrEqual(4000);
     expect(result.duration_ms).toBeLessThanOrEqual(8000);
+    // Same input produces same path
+    const result2 = await tts.generateSegment('Test script for bridging', 'transition');
+    expect(result.audioPath).toBe(result2.audioPath);
   });
 
   it('clamps short scripts to minimum 4000ms', async () => {
@@ -204,6 +208,136 @@ describe('generateBridge', () => {
 });
 
 // ---------------------------------------------------------------------------
+// synthesizeBoundary
+// ---------------------------------------------------------------------------
+
+describe('synthesizeBoundary', () => {
+  it('generates a show_intro segment', async () => {
+    const seg = await synthesizeBoundary(
+      'show_intro', 'Late Night R&B', ['hip-hop'], ['chill'], new StubTTSProvider(),
+    );
+    expect(seg.type).toBe('show_intro');
+    expect(seg.segment_id).toMatch(/^SEG-SI-\d{5}$/);
+    expect(seg.genre_tags).toEqual(['hip-hop']);
+    expect(seg.script_text.length).toBeGreaterThan(0);
+  });
+
+  it('generates a show_outro segment', async () => {
+    const seg = await synthesizeBoundary(
+      'show_outro', 'Late Night R&B', ['hip-hop'], ['chill'], new StubTTSProvider(),
+    );
+    expect(seg.type).toBe('show_outro');
+    expect(seg.segment_id).toMatch(/^SEG-SO-\d{5}$/);
+  });
+
+  it('is deterministic for the same station name', async () => {
+    const a = await synthesizeBoundary(
+      'show_intro', 'Late Night R&B', ['hip-hop'], ['chill'], new StubTTSProvider(),
+    );
+    const b = await synthesizeBoundary(
+      'show_intro', 'Late Night R&B', ['hip-hop'], ['chill'], new StubTTSProvider(),
+    );
+    expect(a.script_text).toBe(b.script_text);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Provider validation
+// ---------------------------------------------------------------------------
+
+describe('selectSegments provider validation', () => {
+  const TRACKS: TracklistEntry[] = [
+    makeTrack({ artist: 'SZA', title: 'Kill Bill' }),
+  ];
+
+  function makeStation() {
+    return {
+      station_id: 'station-001',
+      name: 'Test',
+      description: 'Test',
+      genre_tags: ['hip-hop'],
+      mood_tags: ['chill'],
+      cover_art_url: '',
+      rotation_schedule: { frequency: 'daily', time_of_day_target: 'evening', days: ['mon'] },
+      tracklist: TRACKS,
+      provider_availability: { apple_music: {}, spotify: {} },
+    };
+  }
+
+  it('throws when providers are missing and allowStubs is not set', async () => {
+    await expect(
+      selectSegments(makeStation(), [], { timeOfDay: 'evening', variationSeed: 42 }),
+    ).rejects.toThrow('selectSegments requires llmProvider and ttsProvider');
+  });
+
+  it('allows stubs when allowStubs is true', async () => {
+    const entries = await selectSegments(makeStation(), [], {
+      timeOfDay: 'evening',
+      variationSeed: 42,
+      allowStubs: true,
+    });
+    expect(entries.length).toBeGreaterThan(0);
+  });
+
+  it('works when both providers are explicitly supplied', async () => {
+    const entries = await selectSegments(makeStation(), [], {
+      timeOfDay: 'evening',
+      variationSeed: 42,
+      llmProvider: new StubLLMProvider(),
+      ttsProvider: new StubTTSProvider(),
+    });
+    expect(entries.length).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// generateBridge error handling
+// ---------------------------------------------------------------------------
+
+describe('generateBridge error resilience in selector', () => {
+  it('falls back to library candidate when bridge generation fails', async () => {
+    const lib = [
+      makeSegment({ segment_id: 'SEG-SI-00001', type: 'show_intro', energy_level: 3 }),
+      makeSegment({ segment_id: 'SEG-SO-00001', type: 'show_outro', energy_level: 3 }),
+      // All overused — triggers bridging, but bridge will fail
+      makeSegment({ segment_id: 'SEG-TR-00001', type: 'transition', energy_level: 3, usage_count: 20 }),
+    ];
+
+    const failingLLM: LLMProvider = {
+      generateBridgingScript: () => Promise.reject(new Error('LLM down')),
+    };
+
+    const entries = await selectSegments(
+      {
+        station_id: 'station-001',
+        name: 'Test',
+        description: 'Test',
+        genre_tags: ['hip-hop'],
+        mood_tags: ['chill'],
+        cover_art_url: '',
+        rotation_schedule: { frequency: 'daily', time_of_day_target: 'evening', days: ['mon'] },
+        tracklist: [
+          makeTrack({ artist: 'SZA', title: 'Kill Bill' }),
+          makeTrack({ artist: 'Frank Ocean', title: 'Nights' }),
+        ],
+        provider_availability: { apple_music: {}, spotify: {} },
+      },
+      lib,
+      {
+        timeOfDay: 'evening',
+        variationSeed: 42,
+        llmProvider: failingLLM,
+        ttsProvider: new StubTTSProvider(),
+      },
+    );
+
+    // Should not throw — songs are still present
+    const songs = entries.filter((e) => e.type === 'song');
+    expect(songs).toHaveLength(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Selector integration with bridging
 // ---------------------------------------------------------------------------
 
@@ -211,6 +345,7 @@ describe('selectSegments with bridging', () => {
   const DEFAULT_CONFIG: AssemblyConfig = {
     timeOfDay: 'evening',
     variationSeed: 42,
+    allowStubs: true,
   };
 
   const TRACKS: TracklistEntry[] = [
