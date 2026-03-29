@@ -4,3 +4,7 @@ export { runBatch } from './batch';
 export type { BatchOptions, BatchResult, BatchError } from './batch';
 export { validateJobs } from './types';
 export type { GenerationJob, BatchManifest } from './types';
+export { buildPrompt, parseResponse, generateScripts, StubLLMClient } from './scriptgen';
+export type { ScriptGenRequest, ScriptGenResult, LLMClient } from './scriptgen';
+export { TEMPLATE_BANK, getExamples, getRandomTemplates } from './templates';
+export type { ScriptTemplate } from './templates';
