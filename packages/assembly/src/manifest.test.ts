@@ -114,6 +114,14 @@ describe('validateManifest', () => {
     expect(result.errors).toContain('First entry must be a segment (expected show_intro)');
   });
 
+  it('rejects when last entry is not a segment', () => {
+    const manifest = makeValidManifest();
+    manifest.entries[manifest.entries.length - 1] = makeSongEntry({ canonical_id: 'last', artist: 'Last', title: 'Last' });
+    const result = validateManifest(manifest);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain('Last entry must be a segment (expected show_outro)');
+  });
+
   describe('consecutive segments', () => {
     it('allows segment at start followed by another segment (intro pair)', () => {
       const manifest = makeValidManifest();

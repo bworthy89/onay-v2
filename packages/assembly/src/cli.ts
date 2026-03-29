@@ -36,12 +36,22 @@ async function fetchStation(apiUrl: string, stationId: string): Promise<Station>
 }
 
 async function fetchSegments(apiUrl: string): Promise<Segment[]> {
-  const res = await fetch(`${apiUrl}/api/segments?limit=1000`);
-  if (!res.ok) {
-    throw new Error(`Failed to fetch segments: ${res.status} ${res.statusText}`);
+  const PAGE_SIZE = 200;
+  const all: Segment[] = [];
+  let offset = 0;
+
+  for (;;) {
+    const res = await fetch(`${apiUrl}/api/segments?limit=${PAGE_SIZE}&offset=${offset}`);
+    if (!res.ok) {
+      throw new Error(`Failed to fetch segments: ${res.status} ${res.statusText}`);
+    }
+    const data = await res.json() as { segments: Segment[]; total: number };
+    all.push(...data.segments);
+    if (all.length >= data.total || data.segments.length < PAGE_SIZE) break;
+    offset += PAGE_SIZE;
   }
-  const data = await res.json() as { segments: Segment[]; total: number };
-  return data.segments;
+
+  return all;
 }
 
 async function postTimeline(

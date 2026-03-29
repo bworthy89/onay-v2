@@ -44,9 +44,14 @@ export function validateManifest(manifest: TimelineManifest): ValidationResult {
     return { valid: false, errors };
   }
 
-  // 2. First entry should be a segment
+  // 2. First entry should be a segment (show_intro)
   if (manifest.entries[0].type !== 'segment') {
     errors.push('First entry must be a segment (expected show_intro)');
+  }
+
+  // 2b. Last entry should be a segment (show_outro)
+  if (manifest.entries[manifest.entries.length - 1].type !== 'segment') {
+    errors.push('Last entry must be a segment (expected show_outro)');
   }
 
   // 3. No two consecutive segments (except first entry and last entry)
