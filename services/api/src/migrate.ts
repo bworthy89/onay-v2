@@ -1,8 +1,10 @@
 import db from './db.js';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const MIGRATIONS_DIR = path.resolve(import.meta.dirname, '..', 'migrations');
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const MIGRATIONS_DIR = path.resolve(__dirname, '..', 'migrations');
 
 function ensureMigrationsTable(): void {
   db.exec(`
