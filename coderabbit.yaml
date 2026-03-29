@@ -1,0 +1,9 @@
+reviews:
+  auto_review:
+    enabled: true # Set to true to turn on automatic reviews
+    # Optional: Only review specific branches
+    base_branches:
+      - "main"
+      - "develop"
+    # Optional: Skip draft PRs
+    ignore_drafts: true
