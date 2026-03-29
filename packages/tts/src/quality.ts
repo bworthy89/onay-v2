@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import type { SegmentType } from '@onay/core';
 
 export interface QualityResult {
@@ -74,7 +74,7 @@ function parseWavHeader(buf: Buffer): WavInfo | null {
 export async function scoreSegment(audioPath: string, segmentType: SegmentType): Promise<QualityResult> {
   let buf: Buffer;
   try {
-    buf = readFileSync(audioPath);
+    buf = await readFile(audioPath);
   } catch {
     return { quality_score: 0.0, flags: ['invalid_audio'] };
   }
@@ -121,7 +121,8 @@ export async function scoreSegment(audioPath: string, segmentType: SegmentType):
     if (abs > maxAbs) maxAbs = abs;
   }
 
-  const threshold = maxAbs * 0.01;
+  // Use 1% of max amplitude, with a minimum of 1 to handle fully silent files
+  const threshold = Math.max(maxAbs * 0.01, 1.0);
 
   // Helper: is sample silent?
   const isSilent = (idx: number) => Math.abs(samples[idx]) < threshold;
