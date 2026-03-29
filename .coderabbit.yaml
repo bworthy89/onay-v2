@@ -4,6 +4,6 @@ reviews:
     # Optional: Only review specific branches
     base_branches:
       - "main"
-      - "develop"
+      - "dev"
     # Optional: Skip draft PRs
     ignore_drafts: true
