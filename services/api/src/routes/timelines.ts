@@ -128,7 +128,7 @@ timelinesRouter.get('/api/stations/:id/timeline/history', (req: Request, res: Re
     return;
   }
 
-  const limit = Math.max(1, parseInt(req.query.limit as string) || 20);
+  const limit = Math.min(Math.max(1, parseInt(req.query.limit as string) || 20), 100);
   const offset = Math.max(0, parseInt(req.query.offset as string) || 0);
 
   const rows = db.prepare(
