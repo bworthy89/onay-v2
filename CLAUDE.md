@@ -203,6 +203,33 @@ npx tsx packages/tts/src/cli.ts \
 
 Output structure: `output/{segment_id}/take-{n}.wav` + `output/manifest.json` mapping every file to its full `Segment` metadata (quality_score starts at 0, filled by quality scoring later).
 
+### Script Generation (`packages/tts/src/scriptgen.ts`)
+
+LLM-powered script generation that feeds directly into the batch pipeline. Flow: `ScriptGenRequest` → prompt building → LLM call → response parsing → `GenerationJob[]`.
+
+**ScriptGenRequest** — input:
+
+```typescript
+interface ScriptGenRequest {
+  station: Station;              // Station context (name, genres, tracklist)
+  targetTypes: SegmentType[];    // Which segment types to generate
+  countsPerType: number;         // How many scripts per type
+  style?: string;                // Optional style guidance
+}
+```
+
+**LLMClient** — pluggable interface:
+
+```typescript
+interface LLMClient {
+  complete(systemPrompt: string, userPrompt: string): Promise<string>;
+}
+```
+
+`StubLLMClient` returns pre-written scripts from a template bank (`src/templates.ts`) — 10-12 example scripts per segment type, written in Onay's voice. These also serve as few-shot examples in the LLM prompt.
+
+Exaggeration levels auto-set by energy: low (1-2) → `[0.2, 0.4]`, mid (3) → `[0.4, 0.6]`, high (4-5) → `[0.6, 0.8]`. Takes default to 3.
+
 ## Assembly Rules
 
 When assembling a show timeline, follow these constraints:
@@ -312,6 +339,7 @@ Each issue should be completable in 1-3 coding sessions. If an issue takes more 
 | `feature/core-utils` | `2a8e317` | `generateSegmentId()`, `filterSegments()`, `validateSegment()` in `packages/core/src/utils.ts` + `validation.ts`. Full test coverage |
 | `feature/api-schema` | `a0f1757` | Database schema (`services/api/migrations/001-initial-schema.sql`) + migration runner (`src/migrate.ts`). Tables: stations, station_tracks, segments, timelines, timeline_history |
 | `feature/tts-batch` | `6ad8fff` | Full batch TTS pipeline with `ChatterboxEngine` interface, `PlaceholderChatterboxEngine` stub, `runBatch()`, CLI. Full test coverage |
+| `feature/tts-scriptgen` | WIP | LLM-powered script generation: `ScriptGenRequest` → `buildPrompt()` → `LLMClient` → `parseResponse()` → `GenerationJob[]`. Template bank (10-12 scripts per segment type in Onay's voice), `StubLLMClient`, graceful response parsing. 31 tests |
 
 ### Not yet started
 
