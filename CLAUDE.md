@@ -230,6 +230,41 @@ interface LLMClient {
 
 Exaggeration levels auto-set by energy: low (1-2) → `[0.2, 0.4]`, mid (3) → `[0.4, 0.6]`, high (4-5) → `[0.6, 0.8]`. Takes default to 3.
 
+### Quality Scoring (`packages/tts/src/quality.ts`)
+
+Automated scoring of TTS output. Runs after batch generation to populate `quality_score` on each segment.
+
+**`scoreSegment(audioPath, segmentType)`** → `Promise<QualityResult>`
+
+```typescript
+interface QualityResult {
+  quality_score: number;   // 0.0-1.0, base 1.0 minus deductions
+  quality_flags: string[]; // diagnostic flags for each issue found
+}
+```
+
+Scoring pipeline (base score 1.0, subtract deductions, clamp to 0.0):
+
+1. **File integrity** — validates RIFF/WAVE header, PCM format, 16-bit, mono/stereo, sample rate ≥ 24000. Fail → score 0.0, flag `invalid_audio`.
+2. **Duration check** — compares audio duration against expected range per segment type. Outside range → -0.3, flag `duration_out_of_range`.
+3. **Silence detection** — threshold: amplitude < 1% of max absolute sample value (min 1.0 for silent files). Leading > 500ms → -0.1, trailing > 500ms → -0.1, internal gap > 1000ms → -0.2.
+
+| Segment Type | Duration Range (ms) |
+|---|---|
+| show_intro | 8000-15000 |
+| show_outro | 8000-12000 |
+| song_intro | 5000-10000 |
+| transition | 4000-8000 |
+| artist_shoutout | 8000-20000 |
+| genre_vibe | 6000-12000 |
+| fun_fact | 8000-15000 |
+| hot_take | 6000-15000 |
+| time_of_day | 4000-8000 |
+| ad_lib | 1000-3000 |
+| seasonal | 5000-10000 |
+
+**`batchScore(audioPaths, types)`** — scores multiple files concurrently via `Promise.all`. Validates array lengths match.
+
 ## Assembly Rules
 
 When assembling a show timeline, follow these constraints:
@@ -341,7 +376,8 @@ Each issue should be completable in 1-3 coding sessions. If an issue takes more 
 | `feature/tts-batch` | `6ad8fff` | Full batch TTS pipeline with `ChatterboxEngine` interface, `PlaceholderChatterboxEngine` stub, `runBatch()`, CLI. Full test coverage |
 | `feature/tts-scriptgen` | merged | LLM-powered script generation: `ScriptGenRequest` → `buildPrompt()` → `LLMClient` → `parseResponse()` → `GenerationJob[]`. Template bank (10-12 scripts per segment type in Onay's voice), `StubLLMClient`, graceful response parsing. 31 tests |
 | `feature/api-stations` | merged | Station CRUD + track management + segment library endpoints. 68 integration tests |
-| `feature/api-timelines` | WIP | Timeline manifest endpoints: create, get active, history, get by ID. 27 integration tests |
+| `feature/api-timelines` | merged | Timeline manifest endpoints: create, get active, history, get by ID. 27 integration tests |
+| `feature/tts-quality` | PR #30 | Audio quality scoring: `scoreSegment()` + `batchScore()` in `packages/tts/src/quality.ts`. WAV integrity checks (RIFF/WAVE header, 16-bit PCM, sample rate ≥ 24000), duration validation per segment type, silence detection (leading/trailing/internal gaps). Returns `QualityResult` with `quality_score` (0-1) and `quality_flags`. 17 tests |
 
 ### API Endpoints (from `feature/api-stations`)
 
