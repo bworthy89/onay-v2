@@ -1,4 +1,13 @@
 import type { Station, Segment, SegmentType, TimelineEntry, TracklistEntry } from '@onay/core';
+import {
+  detectLowConfidence,
+  generateBridge,
+  StubLLMProvider,
+  StubTTSProvider,
+  type BridgingContext,
+  type LLMProvider,
+  type TTSProvider,
+} from './bridging';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -7,6 +16,8 @@ import type { Station, Segment, SegmentType, TimelineEntry, TracklistEntry } fro
 export interface AssemblyConfig {
   timeOfDay: string;
   variationSeed: number;
+  llmProvider?: LLMProvider;
+  ttsProvider?: TTSProvider;
 }
 
 // ---------------------------------------------------------------------------
@@ -137,13 +148,15 @@ function getCandidates(
 // Main selector
 // ---------------------------------------------------------------------------
 
-export function selectSegments(
+export async function selectSegments(
   station: Station,
   library: Segment[],
   config: AssemblyConfig,
-): TimelineEntry[] {
+): Promise<TimelineEntry[]> {
   const rng = createRng(config.variationSeed);
   const tracklist = station.tracklist;
+  const llm = config.llmProvider ?? new StubLLMProvider();
+  const tts = config.ttsProvider ?? new StubTTSProvider();
 
   if (tracklist.length === 0) return [];
 
@@ -237,7 +250,17 @@ export function selectSegments(
       candidates = getCandidates(library, transitionTypes, ctx, 2);
     }
 
-    if (candidates.length > 0) {
+    // If library candidates are low confidence, generate a bridge dynamically
+    if (detectLowConfidence(candidates, energyTarget, 2)) {
+      const bridgingCtx: BridgingContext = {
+        previousSong: track,
+        nextSong: nextTrack,
+        stationMood: station.mood_tags,
+        stationGenre: station.genre_tags,
+      };
+      const bridged = await generateBridge(bridgingCtx, llm, tts);
+      useSegment(bridged);
+    } else if (candidates.length > 0) {
       useSegment(pickBest(candidates, rng, usageBumps));
     }
   }

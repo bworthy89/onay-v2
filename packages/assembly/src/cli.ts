@@ -90,7 +90,7 @@ async function main() {
     timeOfDay: station.rotation_schedule?.time_of_day_target ?? 'evening',
     variationSeed: Date.now(),
   };
-  const entries = selectSegments(station, segments, config);
+  const entries = await selectSegments(station, segments, config);
 
   console.log('Building manifest...');
   const manifest = buildManifest(stationId, entries);
