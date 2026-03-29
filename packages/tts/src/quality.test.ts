@@ -156,3 +156,91 @@ describe('scoreSegment — duration check', () => {
     expect(result.flags).not.toContain('duration_out_of_range');
   });
 });
+
+describe('scoreSegment — silence detection', () => {
+  /** Build samples: silence for `silenceMs`, then tone for `toneMs`, then silence for `trailMs`. */
+  function buildSilenceToneSilence(silenceMs: number, toneMs: number, trailMs: number, sampleRate = 24000): number[] {
+    const silenceSamples = Math.floor((sampleRate * silenceMs) / 1000);
+    const toneSamples = Math.floor((sampleRate * toneMs) / 1000);
+    const trailSamples = Math.floor((sampleRate * trailMs) / 1000);
+    const samples: number[] = [];
+
+    for (let i = 0; i < silenceSamples; i++) samples.push(0);
+    for (let i = 0; i < toneSamples; i++) samples.push(0.5 * Math.sin(2 * Math.PI * 440 * i / sampleRate));
+    for (let i = 0; i < trailSamples; i++) samples.push(0);
+
+    return samples;
+  }
+
+  it('flags excessive leading silence (>500ms)', async () => {
+    // 800ms silence + 5200ms tone = 6000ms total, within transition range
+    const samples = buildSilenceToneSilence(800, 5200, 0);
+    const path = writeFixture('lead-silence.wav', buildTestWav({ samples }));
+    const result = await scoreSegment(path, 'transition');
+    expect(result.flags).toContain('excessive_leading_silence');
+    expect(result.flags).not.toContain('excessive_trailing_silence');
+    expect(result.quality_score).toBeCloseTo(0.9, 5);
+  });
+
+  it('flags excessive trailing silence (>500ms)', async () => {
+    // 5200ms tone + 800ms silence = 6000ms total
+    const samples = buildSilenceToneSilence(0, 5200, 800);
+    const path = writeFixture('trail-silence.wav', buildTestWav({ samples }));
+    const result = await scoreSegment(path, 'transition');
+    expect(result.flags).toContain('excessive_trailing_silence');
+    expect(result.flags).not.toContain('excessive_leading_silence');
+    expect(result.quality_score).toBeCloseTo(0.9, 5);
+  });
+
+  it('flags both leading and trailing silence', async () => {
+    // 800ms silence + 4400ms tone + 800ms silence = 6000ms total
+    const samples = buildSilenceToneSilence(800, 4400, 800);
+    const path = writeFixture('both-silence.wav', buildTestWav({ samples }));
+    const result = await scoreSegment(path, 'transition');
+    expect(result.flags).toContain('excessive_leading_silence');
+    expect(result.flags).toContain('excessive_trailing_silence');
+    expect(result.quality_score).toBeCloseTo(0.8, 5);
+  });
+
+  it('does not flag silence under 500ms', async () => {
+    // 400ms silence + 5200ms tone + 400ms silence = 6000ms total
+    const samples = buildSilenceToneSilence(400, 5200, 400);
+    const path = writeFixture('ok-silence.wav', buildTestWav({ samples }));
+    const result = await scoreSegment(path, 'transition');
+    expect(result.flags).not.toContain('excessive_leading_silence');
+    expect(result.flags).not.toContain('excessive_trailing_silence');
+  });
+
+  it('flags internal silence gap > 1000ms', async () => {
+    const sampleRate = 24000;
+    const samples: number[] = [];
+    // 2s tone
+    for (let i = 0; i < sampleRate * 2; i++) samples.push(0.5 * Math.sin(2 * Math.PI * 440 * i / sampleRate));
+    // 1.2s silence (internal gap)
+    for (let i = 0; i < Math.floor(sampleRate * 1.2); i++) samples.push(0);
+    // 2s tone
+    for (let i = 0; i < sampleRate * 2; i++) samples.push(0.5 * Math.sin(2 * Math.PI * 440 * i / sampleRate));
+    // Total ~5.2s — within transition range (4-8s)
+
+    const path = writeFixture('gap.wav', buildTestWav({ samples }));
+    const result = await scoreSegment(path, 'transition');
+    expect(result.flags).toContain('internal_silence_gap');
+    expect(result.quality_score).toBeCloseTo(0.8, 5);
+  });
+
+  it('does not flag internal silence under 1000ms', async () => {
+    const sampleRate = 24000;
+    const samples: number[] = [];
+    // 2.5s tone
+    for (let i = 0; i < Math.floor(sampleRate * 2.5); i++) samples.push(0.5 * Math.sin(2 * Math.PI * 440 * i / sampleRate));
+    // 800ms silence (under threshold)
+    for (let i = 0; i < Math.floor(sampleRate * 0.8); i++) samples.push(0);
+    // 2.5s tone
+    for (let i = 0; i < Math.floor(sampleRate * 2.5); i++) samples.push(0.5 * Math.sin(2 * Math.PI * 440 * i / sampleRate));
+    // Total ~5.8s
+
+    const path = writeFixture('small-gap.wav', buildTestWav({ samples }));
+    const result = await scoreSegment(path, 'transition');
+    expect(result.flags).not.toContain('internal_silence_gap');
+  });
+});
