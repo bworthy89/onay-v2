@@ -40,7 +40,8 @@ async function fetchSegments(apiUrl: string): Promise<Segment[]> {
   if (!res.ok) {
     throw new Error(`Failed to fetch segments: ${res.status} ${res.statusText}`);
   }
-  return res.json() as Promise<Segment[]>;
+  const data = await res.json() as { segments: Segment[]; total: number };
+  return data.segments;
 }
 
 async function postTimeline(
