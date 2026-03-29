@@ -102,28 +102,28 @@ describe('scoreSegment — file integrity', () => {
     const path = writeFixture('bad.wav', buildTestWav({ corruptHeader: true, durationMs: 6000 }));
     const result = await scoreSegment(path, 'transition');
     expect(result.quality_score).toBe(0.0);
-    expect(result.flags).toContain('invalid_audio');
+    expect(result.quality_flags).toContain('invalid_audio');
   });
 
   it('rejects a zero-length file', async () => {
     const path = writeFixture('empty.wav', Buffer.alloc(0));
     const result = await scoreSegment(path, 'transition');
     expect(result.quality_score).toBe(0.0);
-    expect(result.flags).toContain('invalid_audio');
+    expect(result.quality_flags).toContain('invalid_audio');
   });
 
   it('rejects a file with sample rate below 24000', async () => {
     const path = writeFixture('low-sr.wav', buildTestWav({ sampleRate: 22050, durationMs: 6000 }));
     const result = await scoreSegment(path, 'transition');
     expect(result.quality_score).toBe(0.0);
-    expect(result.flags).toContain('invalid_audio');
+    expect(result.quality_flags).toContain('invalid_audio');
   });
 
   it('accepts a valid WAV at 24000 Hz', async () => {
     const path = writeFixture('ok.wav', buildTestWav({ sampleRate: 24000, durationMs: 6000 }));
     const result = await scoreSegment(path, 'transition');
     expect(result.quality_score).toBeGreaterThan(0);
-    expect(result.flags).not.toContain('invalid_audio');
+    expect(result.quality_flags).not.toContain('invalid_audio');
   });
 });
 
@@ -132,14 +132,14 @@ describe('scoreSegment — duration check', () => {
     const path = writeFixture('good-dur.wav', buildTestWav({ durationMs: 6000 }));
     const result = await scoreSegment(path, 'transition');
     expect(result.quality_score).toBe(1.0);
-    expect(result.flags).toEqual([]);
+    expect(result.quality_flags).toEqual([]);
   });
 
   it('flags duration_out_of_range for a too-short transition', async () => {
     const path = writeFixture('short.wav', buildTestWav({ durationMs: 2000 }));
     const result = await scoreSegment(path, 'transition');
     expect(result.quality_score).toBeCloseTo(0.7, 5);
-    expect(result.flags).toContain('duration_out_of_range');
+    expect(result.quality_flags).toContain('duration_out_of_range');
   });
 
   it('flags duration_out_of_range for a too-long ad_lib', async () => {
@@ -147,13 +147,13 @@ describe('scoreSegment — duration check', () => {
     const path = writeFixture('long.wav', buildTestWav({ durationMs: 5000 }));
     const result = await scoreSegment(path, 'ad_lib');
     expect(result.quality_score).toBeCloseTo(0.7, 5);
-    expect(result.flags).toContain('duration_out_of_range');
+    expect(result.quality_flags).toContain('duration_out_of_range');
   });
 
   it('accepts a show_intro at the boundary (8000ms)', async () => {
     const path = writeFixture('boundary.wav', buildTestWav({ durationMs: 8000 }));
     const result = await scoreSegment(path, 'show_intro');
-    expect(result.flags).not.toContain('duration_out_of_range');
+    expect(result.quality_flags).not.toContain('duration_out_of_range');
   });
 });
 
@@ -177,8 +177,8 @@ describe('scoreSegment — silence detection', () => {
     const samples = buildSilenceToneSilence(800, 5200, 0);
     const path = writeFixture('lead-silence.wav', buildTestWav({ samples }));
     const result = await scoreSegment(path, 'transition');
-    expect(result.flags).toContain('excessive_leading_silence');
-    expect(result.flags).not.toContain('excessive_trailing_silence');
+    expect(result.quality_flags).toContain('excessive_leading_silence');
+    expect(result.quality_flags).not.toContain('excessive_trailing_silence');
     expect(result.quality_score).toBeCloseTo(0.9, 5);
   });
 
@@ -187,8 +187,8 @@ describe('scoreSegment — silence detection', () => {
     const samples = buildSilenceToneSilence(0, 5200, 800);
     const path = writeFixture('trail-silence.wav', buildTestWav({ samples }));
     const result = await scoreSegment(path, 'transition');
-    expect(result.flags).toContain('excessive_trailing_silence');
-    expect(result.flags).not.toContain('excessive_leading_silence');
+    expect(result.quality_flags).toContain('excessive_trailing_silence');
+    expect(result.quality_flags).not.toContain('excessive_leading_silence');
     expect(result.quality_score).toBeCloseTo(0.9, 5);
   });
 
@@ -197,8 +197,8 @@ describe('scoreSegment — silence detection', () => {
     const samples = buildSilenceToneSilence(800, 4400, 800);
     const path = writeFixture('both-silence.wav', buildTestWav({ samples }));
     const result = await scoreSegment(path, 'transition');
-    expect(result.flags).toContain('excessive_leading_silence');
-    expect(result.flags).toContain('excessive_trailing_silence');
+    expect(result.quality_flags).toContain('excessive_leading_silence');
+    expect(result.quality_flags).toContain('excessive_trailing_silence');
     expect(result.quality_score).toBeCloseTo(0.8, 5);
   });
 
@@ -207,8 +207,8 @@ describe('scoreSegment — silence detection', () => {
     const samples = buildSilenceToneSilence(400, 5200, 400);
     const path = writeFixture('ok-silence.wav', buildTestWav({ samples }));
     const result = await scoreSegment(path, 'transition');
-    expect(result.flags).not.toContain('excessive_leading_silence');
-    expect(result.flags).not.toContain('excessive_trailing_silence');
+    expect(result.quality_flags).not.toContain('excessive_leading_silence');
+    expect(result.quality_flags).not.toContain('excessive_trailing_silence');
   });
 
   it('flags internal silence gap > 1000ms', async () => {
@@ -224,7 +224,7 @@ describe('scoreSegment — silence detection', () => {
 
     const path = writeFixture('gap.wav', buildTestWav({ samples }));
     const result = await scoreSegment(path, 'transition');
-    expect(result.flags).toContain('internal_silence_gap');
+    expect(result.quality_flags).toContain('internal_silence_gap');
     expect(result.quality_score).toBeCloseTo(0.8, 5);
   });
 
@@ -241,14 +241,13 @@ describe('scoreSegment — silence detection', () => {
 
     const path = writeFixture('small-gap.wav', buildTestWav({ samples }));
     const result = await scoreSegment(path, 'transition');
-    expect(result.flags).not.toContain('internal_silence_gap');
+    expect(result.quality_flags).not.toContain('internal_silence_gap');
   });
 });
 
 describe('scoreSegment — combined deductions', () => {
-  it('clamps score to 0.0 when deductions exceed 1.0', async () => {
-    // Too-short file (duration deduction: -0.3) + leading silence (-0.1) + trailing silence (-0.1) + internal gap (-0.2) = -0.7
-    // But let's make a really bad file: wrong duration AND lots of silence
+  it('applies all four deductions together (score 0.3)', async () => {
+    // duration (-0.3) + leading silence (-0.1) + trailing silence (-0.1) + internal gap (-0.2) = -0.7 → score 0.3
     const sampleRate = 24000;
     const samples: number[] = [];
     // 800ms leading silence
@@ -261,22 +260,22 @@ describe('scoreSegment — combined deductions', () => {
     for (let i = 0; i < Math.floor(sampleRate * 0.2); i++) samples.push(0.5 * Math.sin(2 * Math.PI * 440 * i / sampleRate));
     // 800ms trailing silence
     for (let i = 0; i < Math.floor(sampleRate * 0.8); i++) samples.push(0);
-    // Total ~3.2s — too short for show_intro (8-15s), so -0.3 duration + -0.1 leading + -0.1 trailing + -0.2 gap = -0.7
+    // Total ~3.2s — too short for show_intro (8-15s)
 
     const path = writeFixture('bad-combo.wav', buildTestWav({ samples }));
     const result = await scoreSegment(path, 'show_intro');
     expect(result.quality_score).toBeCloseTo(0.3, 5);
-    expect(result.flags).toContain('duration_out_of_range');
-    expect(result.flags).toContain('excessive_leading_silence');
-    expect(result.flags).toContain('excessive_trailing_silence');
-    expect(result.flags).toContain('internal_silence_gap');
+    expect(result.quality_flags).toContain('duration_out_of_range');
+    expect(result.quality_flags).toContain('excessive_leading_silence');
+    expect(result.quality_flags).toContain('excessive_trailing_silence');
+    expect(result.quality_flags).toContain('internal_silence_gap');
   });
 
   it('perfect file scores 1.0 with no flags', async () => {
     const path = writeFixture('perfect.wav', buildTestWav({ durationMs: 6000 }));
     const result = await scoreSegment(path, 'transition');
     expect(result.quality_score).toBe(1.0);
-    expect(result.flags).toEqual([]);
+    expect(result.quality_flags).toEqual([]);
   });
 });
 
@@ -294,7 +293,7 @@ describe('batchScore', () => {
     expect(results).toHaveLength(3);
     expect(results[0].quality_score).toBe(1.0);
     expect(results[1].quality_score).toBe(0.0);
-    expect(results[1].flags).toContain('invalid_audio');
-    expect(results[2].flags).toContain('duration_out_of_range');
+    expect(results[1].quality_flags).toContain('invalid_audio');
+    expect(results[2].quality_flags).toContain('duration_out_of_range');
   });
 });

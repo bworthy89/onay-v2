@@ -3,7 +3,7 @@ import type { SegmentType } from '@onay/core';
 
 export interface QualityResult {
   quality_score: number;
-  flags: string[];
+  quality_flags: string[];
 }
 
 /** Expected duration ranges per segment type in milliseconds [min, max]. */
@@ -48,8 +48,11 @@ function parseWavHeader(buf: Buffer): WavInfo | null {
   if (audioFormat !== 1) return null; // Only PCM
 
   const numChannels = buf.readUInt16LE(22);
+  if (numChannels === 0 || numChannels > 2) return null;
+
   const sampleRate = buf.readUInt32LE(24);
   const bitsPerSample = buf.readUInt16LE(34);
+  if (bitsPerSample !== 16) return null; // Only 16-bit PCM supported
 
   // Find data chunk — scan from byte 36 onward
   let offset = 36;
@@ -57,13 +60,11 @@ function parseWavHeader(buf: Buffer): WavInfo | null {
     const chunkId = buf.toString('ascii', offset, offset + 4);
     const chunkSize = buf.readUInt32LE(offset + 4);
     if (chunkId === 'data') {
-      return {
-        sampleRate,
-        numChannels,
-        bitsPerSample,
-        dataOffset: offset + 8,
-        dataSize: chunkSize,
-      };
+      const dataOffset = offset + 8;
+      // Clamp dataSize to actual available bytes
+      const dataSize = Math.min(chunkSize, buf.length - dataOffset);
+      if (dataSize === 0) return null;
+      return { sampleRate, numChannels, bitsPerSample, dataOffset, dataSize };
     }
     offset += 8 + chunkSize;
   }
@@ -76,31 +77,31 @@ export async function scoreSegment(audioPath: string, segmentType: SegmentType):
   try {
     buf = await readFile(audioPath);
   } catch {
-    return { quality_score: 0.0, flags: ['invalid_audio'] };
+    return { quality_score: 0.0, quality_flags: ['invalid_audio'] };
   }
 
   if (buf.length === 0) {
-    return { quality_score: 0.0, flags: ['invalid_audio'] };
+    return { quality_score: 0.0, quality_flags: ['invalid_audio'] };
   }
 
   const wav = parseWavHeader(buf);
   if (!wav) {
-    return { quality_score: 0.0, flags: ['invalid_audio'] };
+    return { quality_score: 0.0, quality_flags: ['invalid_audio'] };
   }
 
   if (wav.sampleRate < 24000) {
-    return { quality_score: 0.0, flags: ['invalid_audio'] };
+    return { quality_score: 0.0, quality_flags: ['invalid_audio'] };
   }
 
   let score = 1.0;
-  const flags: string[] = [];
+  const quality_flags: string[] = [];
 
   // Duration check
   const durationMs = (wav.dataSize / (wav.numChannels * (wav.bitsPerSample / 8))) / wav.sampleRate * 1000;
   const [minMs, maxMs] = DURATION_RANGES[segmentType];
   if (durationMs < minMs || durationMs > maxMs) {
     score -= 0.3;
-    flags.push('duration_out_of_range');
+    quality_flags.push('duration_out_of_range');
   }
 
   // Silence detection
@@ -135,7 +136,7 @@ export async function scoreSegment(audioPath: string, segmentType: SegmentType):
   const leadingMs = (leadingSamples / wav.sampleRate) * 1000;
   if (leadingMs > 500) {
     score -= 0.1;
-    flags.push('excessive_leading_silence');
+    quality_flags.push('excessive_leading_silence');
   }
 
   // Trailing silence
@@ -148,7 +149,7 @@ export async function scoreSegment(audioPath: string, segmentType: SegmentType):
   const trailingMs = (trailingSamples / wav.sampleRate) * 1000;
   if (trailingMs > 500) {
     score -= 0.1;
-    flags.push('excessive_trailing_silence');
+    quality_flags.push('excessive_trailing_silence');
   }
 
   // Internal silence gaps
@@ -172,15 +173,20 @@ export async function scoreSegment(audioPath: string, segmentType: SegmentType):
 
   if (hasInternalGap) {
     score -= 0.2;
-    flags.push('internal_silence_gap');
+    quality_flags.push('internal_silence_gap');
   }
 
-  return { quality_score: Math.max(0.0, score), flags };
+  return { quality_score: Math.max(0.0, score), quality_flags };
 }
 
 export async function batchScore(
   audioPaths: string[],
   types: SegmentType[],
 ): Promise<QualityResult[]> {
+  if (audioPaths.length !== types.length) {
+    throw new Error(
+      `audioPaths length (${audioPaths.length}) must match types length (${types.length})`,
+    );
+  }
   return Promise.all(audioPaths.map((path, i) => scoreSegment(path, types[i])));
 }
