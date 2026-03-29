@@ -126,3 +126,33 @@ describe('scoreSegment — file integrity', () => {
     expect(result.flags).not.toContain('invalid_audio');
   });
 });
+
+describe('scoreSegment — duration check', () => {
+  it('scores 1.0 for a transition within range (4000-8000ms)', async () => {
+    const path = writeFixture('good-dur.wav', buildTestWav({ durationMs: 6000 }));
+    const result = await scoreSegment(path, 'transition');
+    expect(result.quality_score).toBe(1.0);
+    expect(result.flags).toEqual([]);
+  });
+
+  it('flags duration_out_of_range for a too-short transition', async () => {
+    const path = writeFixture('short.wav', buildTestWav({ durationMs: 2000 }));
+    const result = await scoreSegment(path, 'transition');
+    expect(result.quality_score).toBeCloseTo(0.7, 5);
+    expect(result.flags).toContain('duration_out_of_range');
+  });
+
+  it('flags duration_out_of_range for a too-long ad_lib', async () => {
+    // ad_lib range: 1000-3000ms, so 5000ms is too long
+    const path = writeFixture('long.wav', buildTestWav({ durationMs: 5000 }));
+    const result = await scoreSegment(path, 'ad_lib');
+    expect(result.quality_score).toBeCloseTo(0.7, 5);
+    expect(result.flags).toContain('duration_out_of_range');
+  });
+
+  it('accepts a show_intro at the boundary (8000ms)', async () => {
+    const path = writeFixture('boundary.wav', buildTestWav({ durationMs: 8000 }));
+    const result = await scoreSegment(path, 'show_intro');
+    expect(result.flags).not.toContain('duration_out_of_range');
+  });
+});
