@@ -3,6 +3,7 @@ import cors from 'cors';
 import { healthRouter } from './routes/health.js';
 import { stationsRouter } from './routes/stations.js';
 import { segmentsRouter } from './routes/segments.js';
+import { timelinesRouter } from './routes/timelines.js';
 
 interface HttpError extends Error {
   status?: number;
@@ -16,6 +17,7 @@ app.use(express.json());
 app.use(healthRouter);
 app.use(stationsRouter);
 app.use(segmentsRouter);
+app.use(timelinesRouter);
 
 app.use((err: HttpError, _req: Request, res: Response, _next: NextFunction) => {
   const status = err.status ?? 500;

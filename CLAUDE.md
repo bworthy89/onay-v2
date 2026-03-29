@@ -340,7 +340,8 @@ Each issue should be completable in 1-3 coding sessions. If an issue takes more 
 | `feature/api-schema` | `a0f1757` | Database schema (`services/api/migrations/001-initial-schema.sql`) + migration runner (`src/migrate.ts`). Tables: stations, station_tracks, segments, timelines, timeline_history |
 | `feature/tts-batch` | `6ad8fff` | Full batch TTS pipeline with `ChatterboxEngine` interface, `PlaceholderChatterboxEngine` stub, `runBatch()`, CLI. Full test coverage |
 | `feature/tts-scriptgen` | merged | LLM-powered script generation: `ScriptGenRequest` → `buildPrompt()` → `LLMClient` → `parseResponse()` → `GenerationJob[]`. Template bank (10-12 scripts per segment type in Onay's voice), `StubLLMClient`, graceful response parsing. 31 tests |
-| `feature/api-stations` | WIP | Station CRUD + track management + segment library endpoints. 68 integration tests |
+| `feature/api-stations` | merged | Station CRUD + track management + segment library endpoints. 68 integration tests |
+| `feature/api-timelines` | WIP | Timeline manifest endpoints: create, get active, history, get by ID. 27 integration tests |
 
 ### API Endpoints (from `feature/api-stations`)
 
@@ -369,13 +370,21 @@ Each issue should be completable in 1-3 coding sessions. If an issue takes more 
 | POST | `/api/segments/bulk-approve` | Approve all pending segments with `quality_score >= threshold` |
 | GET | `/api/segments/stats` | Library stats: total, by_type counts, avg_quality, total_duration_ms |
 
+**Timeline Manifests** (`services/api/src/routes/timelines.ts`):
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/api/timelines` | Create timeline (validates station exists, entries non-empty, entry field types). Also inserts timeline_history record. Returns 201 |
+| GET | `/api/stations/:id/timeline` | Get most recent timeline for a station. 404 if station has no timelines |
+| GET | `/api/stations/:id/timeline/history` | List past timelines with `entry_count` and `total_duration_ms`. Supports `?limit` and `?offset` |
+| GET | `/api/timelines/:id` | Get specific timeline by ID |
+
 **DB response shape:** Station rows use `station_id` (mapped from DB `id`), JSON array columns are parsed to arrays. Segments include a `status` field (`pending`/`approved`/`rejected`) added via `002-segment-status.sql` migration.
 
 **Test setup:** `src/test-setup.ts` provides `createTestDb()` — creates an in-memory SQLite database with all migrations applied. Test files mock `db.js` via `vi.mock` and clean tables in `beforeEach`.
 
 ### Not yet started
 
-- Timeline/Assembly endpoints
 - Assembly pipeline (`packages/assembly/` — empty)
 - Tools web app (`apps/tools/` — empty)
 - Mobile app stub implementations (interfaces in place, bodies unimplemented)
