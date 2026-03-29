@@ -84,10 +84,11 @@ describe('migrations', () => {
   });
 
   it('is idempotent — running twice does not throw', () => {
+    const beforeCount = (db.prepare('SELECT COUNT(*) as count FROM _migrations').get() as { count: number }).count;
     // Already ran once in beforeEach; running again should skip all
     expect(() => runMigrations(db)).not.toThrow();
-    const rows = db.prepare('SELECT name FROM _migrations').all();
-    expect(rows).toHaveLength(1);
+    const afterCount = (db.prepare('SELECT COUNT(*) as count FROM _migrations').get() as { count: number }).count;
+    expect(afterCount).toBe(beforeCount);
   });
 
   it('enforces foreign keys on station_tracks', () => {
