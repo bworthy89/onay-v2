@@ -185,14 +185,15 @@ describe('PUT /api/stations/:id', () => {
   it('updates updated_at timestamp', async () => {
     const created = await request(app).post('/api/stations').send({ name: 'Timestamped' });
 
-    // SQLite datetime('now') has second precision — wait 1.1s for a different timestamp
-    await new Promise((r) => setTimeout(r, 1100));
+    // Backdate created_at so the update produces a different timestamp
+    db.prepare("UPDATE stations SET created_at = datetime('now', '-1 minute') WHERE id = ?").run(created.body.station_id);
 
     const res = await request(app)
       .put(`/api/stations/${created.body.station_id}`)
       .send({ name: 'Updated' });
 
-    expect(res.body.updated_at).not.toBe(created.body.created_at);
+    const original = db.prepare('SELECT created_at FROM stations WHERE id = ?').get(created.body.station_id) as { created_at: string };
+    expect(res.body.updated_at).not.toBe(original.created_at);
   });
 
   it('returns 404 for nonexistent station', async () => {

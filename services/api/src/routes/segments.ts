@@ -32,7 +32,9 @@ const upload = multer({
     if (allowed.includes(ext)) {
       cb(null, true);
     } else {
-      cb(new Error('Only .wav and .mp3 files are allowed'));
+      const err: Error & { status?: number } = new Error('Only .wav and .mp3 files are allowed');
+      err.status = 400;
+      cb(err);
     }
   },
 });
@@ -75,13 +77,35 @@ function rowToSegment(row: SegmentRow) {
   };
 }
 
-function parseJsonField(value: string | undefined): string[] {
-  if (!value) return [];
-  try {
-    return JSON.parse(value);
-  } catch {
-    return [];
+function validateStringArray(value: unknown, fieldName: string): string[] | { error: string } {
+  if (value === undefined || value === null || value === '') return [];
+
+  let arr: unknown;
+  if (typeof value === 'string') {
+    try {
+      arr = JSON.parse(value);
+    } catch {
+      return { error: `${fieldName} must be a valid JSON array of strings` };
+    }
+  } else {
+    arr = value;
   }
+
+  if (!Array.isArray(arr)) {
+    return { error: `${fieldName} must be an array of strings` };
+  }
+
+  if (!arr.every((item) => typeof item === 'string')) {
+    return { error: `${fieldName} must contain only strings` };
+  }
+
+  return arr;
+}
+
+function validateFiniteNumber(value: unknown, defaultValue: number): number | null {
+  if (value === undefined || value === null || value === '') return defaultValue;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
 }
 
 // GET /api/segments/stats — must be before /:id
@@ -138,16 +162,38 @@ segmentsRouter.post('/api/segments', upload.single('audio'), (req: Request, res:
     return;
   }
 
-  if (!duration_ms || Number(duration_ms) <= 0) {
-    res.status(400).json({ error: 'duration_ms is required and must be positive' });
+  const durationNum = validateFiniteNumber(duration_ms, 0);
+  if (durationNum === null || durationNum <= 0) {
+    res.status(400).json({ error: 'duration_ms is required and must be a positive number' });
     return;
   }
 
-  const energyNum = Number(energy_level ?? 3);
-  if (energyNum < 1 || energyNum > 5) {
-    res.status(400).json({ error: 'energy_level must be between 1 and 5' });
+  const energyNum = validateFiniteNumber(energy_level, 3);
+  if (energyNum === null || !Number.isInteger(energyNum) || energyNum < 1 || energyNum > 5) {
+    res.status(400).json({ error: 'energy_level must be an integer between 1 and 5' });
     return;
   }
+
+  const qualityNum = validateFiniteNumber(quality_score, 0);
+  if (qualityNum === null) {
+    res.status(400).json({ error: 'quality_score must be a finite number' });
+    return;
+  }
+
+  const exaggerationNum = validateFiniteNumber(exaggeration_level, 0);
+  if (exaggerationNum === null) {
+    res.status(400).json({ error: 'exaggeration_level must be a finite number' });
+    return;
+  }
+
+  const parsedGenre = validateStringArray(genre_tags, 'genre_tags');
+  if ('error' in parsedGenre) { res.status(400).json(parsedGenre); return; }
+
+  const parsedMood = validateStringArray(mood_tags, 'mood_tags');
+  if ('error' in parsedMood) { res.status(400).json(parsedMood); return; }
+
+  const parsedArtists = validateStringArray(artist_refs, 'artist_refs');
+  if ('error' in parsedArtists) { res.status(400).json(parsedArtists); return; }
 
   const segmentId = req.body.segment_id || generateSegmentId(type as SegmentType);
   const audioUrl = req.file ? path.relative(process.cwd(), req.file.path) : null;
@@ -158,13 +204,13 @@ segmentsRouter.post('/api/segments', upload.single('audio'), (req: Request, res:
   ).run(
     segmentId,
     type,
-    JSON.stringify(parseJsonField(genre_tags)),
-    JSON.stringify(parseJsonField(mood_tags)),
-    JSON.stringify(parseJsonField(artist_refs)),
+    JSON.stringify(parsedGenre),
+    JSON.stringify(parsedMood),
+    JSON.stringify(parsedArtists),
     energyNum,
-    Number(duration_ms),
-    Number(quality_score ?? 0),
-    Number(exaggeration_level ?? 0),
+    durationNum,
+    qualityNum,
+    exaggerationNum,
     audioUrl,
     script_text
   );
@@ -256,6 +302,63 @@ segmentsRouter.put('/api/segments/:id', (req: Request, res: Response) => {
 
   const { type, genre_tags, mood_tags, artist_refs, energy_level, duration_ms, quality_score, exaggeration_level, script_text, status } = req.body;
 
+  if (type !== undefined && !VALID_SEGMENT_TYPES.includes(type)) {
+    res.status(400).json({ error: `type must be one of: ${VALID_SEGMENT_TYPES.join(', ')}` });
+    return;
+  }
+
+  if (energy_level !== undefined) {
+    const e = Number(energy_level);
+    if (!Number.isFinite(e) || !Number.isInteger(e) || e < 1 || e > 5) {
+      res.status(400).json({ error: 'energy_level must be an integer between 1 and 5' });
+      return;
+    }
+  }
+
+  if (duration_ms !== undefined) {
+    const d = Number(duration_ms);
+    if (!Number.isFinite(d) || d <= 0) {
+      res.status(400).json({ error: 'duration_ms must be a positive number' });
+      return;
+    }
+  }
+
+  if (quality_score !== undefined && !Number.isFinite(Number(quality_score))) {
+    res.status(400).json({ error: 'quality_score must be a finite number' });
+    return;
+  }
+
+  if (exaggeration_level !== undefined && !Number.isFinite(Number(exaggeration_level))) {
+    res.status(400).json({ error: 'exaggeration_level must be a finite number' });
+    return;
+  }
+
+  if (status !== undefined && !['pending', 'approved', 'rejected'].includes(status)) {
+    res.status(400).json({ error: 'status must be one of: pending, approved, rejected' });
+    return;
+  }
+
+  let genreJson = existing.genre_tags;
+  if (genre_tags !== undefined) {
+    const parsed = validateStringArray(genre_tags, 'genre_tags');
+    if ('error' in parsed) { res.status(400).json(parsed); return; }
+    genreJson = JSON.stringify(parsed);
+  }
+
+  let moodJson = existing.mood_tags;
+  if (mood_tags !== undefined) {
+    const parsed = validateStringArray(mood_tags, 'mood_tags');
+    if ('error' in parsed) { res.status(400).json(parsed); return; }
+    moodJson = JSON.stringify(parsed);
+  }
+
+  let artistJson = existing.artist_refs;
+  if (artist_refs !== undefined) {
+    const parsed = validateStringArray(artist_refs, 'artist_refs');
+    if ('error' in parsed) { res.status(400).json(parsed); return; }
+    artistJson = JSON.stringify(parsed);
+  }
+
   db.prepare(
     `UPDATE segments SET
        type = ?,
@@ -271,9 +374,9 @@ segmentsRouter.put('/api/segments/:id', (req: Request, res: Response) => {
      WHERE segment_id = ?`
   ).run(
     type ?? existing.type,
-    genre_tags ? JSON.stringify(genre_tags) : existing.genre_tags,
-    mood_tags ? JSON.stringify(mood_tags) : existing.mood_tags,
-    artist_refs ? JSON.stringify(artist_refs) : existing.artist_refs,
+    genreJson,
+    moodJson,
+    artistJson,
     energy_level ?? existing.energy_level,
     duration_ms ?? existing.duration_ms,
     quality_score ?? existing.quality_score,

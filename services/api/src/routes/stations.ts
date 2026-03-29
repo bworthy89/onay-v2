@@ -59,12 +59,37 @@ function rowToTrack(row: TrackRow) {
   };
 }
 
+function validateStringArray(value: unknown, fieldName: string): string[] | { error: string } {
+  if (value === undefined || value === null) return [];
+
+  if (!Array.isArray(value)) {
+    return { error: `${fieldName} must be an array of strings` };
+  }
+
+  if (!value.every((item) => typeof item === 'string')) {
+    return { error: `${fieldName} must contain only strings` };
+  }
+
+  return value;
+}
+
 // POST /api/stations
 stationsRouter.post('/api/stations', (req: Request, res: Response) => {
   const { name, description, genre_tags, mood_tags, cover_art_url, rotation_schedule } = req.body;
 
   if (!name || typeof name !== 'string') {
-    res.status(400).json({ error: 'name is required' });
+    res.status(400).json({ error: 'name is required and must be a string' });
+    return;
+  }
+
+  const parsedGenre = validateStringArray(genre_tags, 'genre_tags');
+  if ('error' in parsedGenre) { res.status(400).json(parsedGenre); return; }
+
+  const parsedMood = validateStringArray(mood_tags, 'mood_tags');
+  if ('error' in parsedMood) { res.status(400).json(parsedMood); return; }
+
+  if (rotation_schedule !== undefined && rotation_schedule !== null && typeof rotation_schedule !== 'object') {
+    res.status(400).json({ error: 'rotation_schedule must be an object' });
     return;
   }
 
@@ -77,8 +102,8 @@ stationsRouter.post('/api/stations', (req: Request, res: Response) => {
     id,
     name,
     description ?? null,
-    JSON.stringify(genre_tags ?? []),
-    JSON.stringify(mood_tags ?? []),
+    JSON.stringify(parsedGenre),
+    JSON.stringify(parsedMood),
     cover_art_url ?? null,
     rotation_schedule ? JSON.stringify(rotation_schedule) : null
   );
@@ -129,6 +154,35 @@ stationsRouter.put('/api/stations/:id', (req: Request, res: Response) => {
 
   const { name, description, genre_tags, mood_tags, cover_art_url, rotation_schedule, is_published } = req.body;
 
+  if (name !== undefined && typeof name !== 'string') {
+    res.status(400).json({ error: 'name must be a string' });
+    return;
+  }
+
+  let genreJson = existing.genre_tags;
+  if (genre_tags !== undefined) {
+    const parsed = validateStringArray(genre_tags, 'genre_tags');
+    if ('error' in parsed) { res.status(400).json(parsed); return; }
+    genreJson = JSON.stringify(parsed);
+  }
+
+  let moodJson = existing.mood_tags;
+  if (mood_tags !== undefined) {
+    const parsed = validateStringArray(mood_tags, 'mood_tags');
+    if ('error' in parsed) { res.status(400).json(parsed); return; }
+    moodJson = JSON.stringify(parsed);
+  }
+
+  if (rotation_schedule !== undefined && rotation_schedule !== null && typeof rotation_schedule !== 'object') {
+    res.status(400).json({ error: 'rotation_schedule must be an object' });
+    return;
+  }
+
+  if (is_published !== undefined && typeof is_published !== 'boolean') {
+    res.status(400).json({ error: 'is_published must be a boolean' });
+    return;
+  }
+
   db.prepare(
     `UPDATE stations SET
        name = ?,
@@ -143,8 +197,8 @@ stationsRouter.put('/api/stations/:id', (req: Request, res: Response) => {
   ).run(
     name ?? existing.name,
     description !== undefined ? description : existing.description,
-    genre_tags ? JSON.stringify(genre_tags) : existing.genre_tags,
-    mood_tags ? JSON.stringify(mood_tags) : existing.mood_tags,
+    genreJson,
+    moodJson,
     cover_art_url !== undefined ? cover_art_url : existing.cover_art_url,
     rotation_schedule ? JSON.stringify(rotation_schedule) : existing.rotation_schedule,
     is_published !== undefined ? (is_published ? 1 : 0) : existing.is_published,
@@ -215,6 +269,14 @@ stationsRouter.put('/api/stations/:id/tracks', (req: Request, res: Response) => 
     return;
   }
 
+  for (let i = 0; i < tracks.length; i++) {
+    const t = tracks[i];
+    if (!t.canonical_id || !t.artist || !t.title || !t.duration_ms) {
+      res.status(400).json({ error: `Track at index ${i} is missing required fields (canonical_id, artist, title, duration_ms)` });
+      return;
+    }
+  }
+
   db.transaction(() => {
     db.prepare('DELETE FROM station_tracks WHERE station_id = ?').run(req.params.id);
 
@@ -223,11 +285,12 @@ stationsRouter.put('/api/stations/:id/tracks', (req: Request, res: Response) => 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     );
 
-    for (const track of tracks) {
+    for (let i = 0; i < tracks.length; i++) {
+      const track = tracks[i];
       insert.run(
         crypto.randomUUID(),
         req.params.id,
-        track.position,
+        i,
         track.canonical_id,
         track.artist,
         track.title,

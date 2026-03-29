@@ -162,7 +162,7 @@ describe('POST /api/segments', () => {
     expect(res.body.error).toMatch(/duration_ms/i);
   });
 
-  it('rejects non-audio file types', async () => {
+  it('rejects non-audio file types with 400', async () => {
     const res = await request(app)
       .post('/api/segments')
       .attach('audio', Buffer.from('not audio'), 'test.txt')
@@ -170,7 +170,7 @@ describe('POST /api/segments', () => {
       .field('duration_ms', '3000')
       .field('script_text', 'Bad file');
 
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(400);
   });
 });
 
