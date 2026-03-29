@@ -131,6 +131,7 @@ function buildLibrary(): Segment[] {
 const DEFAULT_CONFIG: AssemblyConfig = {
   timeOfDay: 'evening',
   variationSeed: 42,
+  allowStubs: true,
 };
 
 // ---------------------------------------------------------------------------
@@ -158,8 +159,8 @@ describe('selectSegments', () => {
   const library = buildLibrary();
 
   describe('show intro and outro', () => {
-    it('starts with a show_intro segment', () => {
-      const entries = selectSegments(station, library, DEFAULT_CONFIG);
+    it('starts with a show_intro segment', async () => {
+      const entries = await selectSegments(station, library, DEFAULT_CONFIG);
       expect(entries.length).toBeGreaterThan(0);
       expect(entries[0].type).toBe('segment');
       const firstSeg = entries[0] as Extract<TimelineEntry, { type: 'segment' }>;
@@ -167,8 +168,8 @@ describe('selectSegments', () => {
       expect(introIds).toContain(firstSeg.segment_id);
     });
 
-    it('ends with a show_outro segment', () => {
-      const entries = selectSegments(station, library, DEFAULT_CONFIG);
+    it('ends with a show_outro segment', async () => {
+      const entries = await selectSegments(station, library, DEFAULT_CONFIG);
       const last = entries[entries.length - 1];
       expect(last.type).toBe('segment');
       const lastSeg = last as Extract<TimelineEntry, { type: 'segment' }>;
@@ -176,20 +177,20 @@ describe('selectSegments', () => {
       expect(outroIds).toContain(lastSeg.segment_id);
     });
 
-    it('picks best available intro when no genre match exists', () => {
+    it('picks best available intro when no genre match exists', async () => {
       const jazzStation = makeStation({ genre_tags: ['jazz'] });
       // Library has only hip-hop tagged intros, but should still pick one
-      const entries = selectSegments(jazzStation, library, DEFAULT_CONFIG);
+      const entries = await selectSegments(jazzStation, library, DEFAULT_CONFIG);
       expect(entries[0].type).toBe('segment');
     });
   });
 
   describe('60-70% transition coverage', () => {
-    it('places segments at roughly 60-70% of transitions', () => {
+    it('places segments at roughly 60-70% of transitions', async () => {
       // Run with multiple seeds to average out
       const coverages: number[] = [];
       for (let seed = 1; seed <= 20; seed++) {
-        const entries = selectSegments(station, library, { ...DEFAULT_CONFIG, variationSeed: seed });
+        const entries = await selectSegments(station, library, { ...DEFAULT_CONFIG, variationSeed: seed });
         const songs = songEntries(entries);
         const transitionCount = songs.length - 1; // gaps between songs
         if (transitionCount === 0) continue;
@@ -218,10 +219,10 @@ describe('selectSegments', () => {
   });
 
   describe('no-repeat-within-5 rule', () => {
-    it('never uses the same segment_id within 5 slots of itself', () => {
+    it('never uses the same segment_id within 5 slots of itself', async () => {
       // Use a small library to force potential repeats
       const smallLib = library.slice(0, 15);
-      const entries = selectSegments(station, smallLib, DEFAULT_CONFIG);
+      const entries = await selectSegments(station, smallLib, DEFAULT_CONFIG);
       const segIds = getSegmentIds(entries);
 
       for (let i = 0; i < segIds.length; i++) {
@@ -230,8 +231,8 @@ describe('selectSegments', () => {
       }
     });
 
-    it('enforces no-repeat with full library', () => {
-      const entries = selectSegments(station, library, DEFAULT_CONFIG);
+    it('enforces no-repeat with full library', async () => {
+      const entries = await selectSegments(station, library, DEFAULT_CONFIG);
       const segIds = getSegmentIds(entries);
 
       for (let i = 0; i < segIds.length; i++) {
@@ -242,7 +243,7 @@ describe('selectSegments', () => {
   });
 
   describe('energy matching', () => {
-    it('selects segments within energy tolerance of target', () => {
+    it('selects segments within energy tolerance of target', async () => {
       // Create a library with extreme energy levels only
       const extremeLib = [
         makeSegment({ segment_id: 'SEG-SI-99901', type: 'show_intro', energy_level: 1 }),
@@ -254,16 +255,18 @@ describe('selectSegments', () => {
         makeSegment({ segment_id: 'SEG-TR-99905', type: 'transition', energy_level: 4 }),
       ];
 
-      const entries = selectSegments(station, extremeLib, DEFAULT_CONFIG);
-      // All transition segments should exist in our library
+      const entries = await selectSegments(station, extremeLib, DEFAULT_CONFIG);
+      // All segments should either come from our library or be bridged (auto-generated)
       const segIds = getSegmentIds(entries);
       const allLibIds = extremeLib.map((s) => s.segment_id);
       for (const id of segIds) {
-        expect(allLibIds).toContain(id);
+        const fromLibrary = allLibIds.includes(id);
+        const bridged = /^SEG-TR-\d{5}$/.test(id) && !allLibIds.includes(id);
+        expect(fromLibrary || bridged).toBe(true);
       }
     });
 
-    it('widens tolerance to ±2 when no ±1 match exists', () => {
+    it('widens tolerance to ±2 when no ±1 match exists', async () => {
       // Library with only energy 1 transitions, target will be 3
       const narrowLib = [
         makeSegment({ segment_id: 'SEG-SI-88801', type: 'show_intro', energy_level: 3 }),
@@ -275,7 +278,7 @@ describe('selectSegments', () => {
         makeSegment({ segment_id: 'SEG-TR-88805', type: 'transition', energy_level: 5 }),
       ];
 
-      const entries = selectSegments(station, narrowLib, DEFAULT_CONFIG);
+      const entries = await selectSegments(station, narrowLib, DEFAULT_CONFIG);
       // Should still place some segments despite energy mismatch (±2 tolerance)
       const segs = segmentEntries(entries);
       expect(segs.length).toBeGreaterThan(2); // at least intro + outro + some transitions
@@ -283,7 +286,7 @@ describe('selectSegments', () => {
   });
 
   describe('ad-lib limits', () => {
-    it('places at most 2 ad-libs per show', () => {
+    it('places at most 2 ad-libs per show', async () => {
       // Library with many ad-libs to tempt overuse
       const adLibHeavy = [
         makeSegment({ segment_id: 'SEG-SI-77701', type: 'show_intro', energy_level: 3 }),
@@ -293,13 +296,13 @@ describe('selectSegments', () => {
         ),
       ];
 
-      const entries = selectSegments(station, adLibHeavy, DEFAULT_CONFIG);
+      const entries = await selectSegments(station, adLibHeavy, DEFAULT_CONFIG);
       const adLibIds = getSegmentIds(entries).filter((id) => id.startsWith('SEG-AL'));
       expect(adLibIds.length).toBeLessThanOrEqual(2);
     });
 
-    it('never places an ad-lib adjacent to another segment', () => {
-      const entries = selectSegments(station, library, DEFAULT_CONFIG);
+    it('never places an ad-lib adjacent to another segment', async () => {
+      const entries = await selectSegments(station, library, DEFAULT_CONFIG);
 
       for (let i = 0; i < entries.length; i++) {
         if (entries[i].type === 'segment') {
@@ -317,8 +320,8 @@ describe('selectSegments', () => {
   });
 
   describe('artist shoutout adjacency', () => {
-    it('only places artist shoutouts next to songs by that artist', () => {
-      const entries = selectSegments(station, library, DEFAULT_CONFIG);
+    it('only places artist shoutouts next to songs by that artist', async () => {
+      const entries = await selectSegments(station, library, DEFAULT_CONFIG);
 
       for (let i = 0; i < entries.length; i++) {
         if (entries[i].type !== 'segment') continue;
@@ -345,8 +348,8 @@ describe('selectSegments', () => {
       }
     });
 
-    it('does not place Beyonce shoutout when she is not in tracklist', () => {
-      const entries = selectSegments(station, library, DEFAULT_CONFIG);
+    it('does not place Beyonce shoutout when she is not in tracklist', async () => {
+      const entries = await selectSegments(station, library, DEFAULT_CONFIG);
       const beyonceSeg = library.find((s) => s.artist_refs.includes('Beyonce'));
       const segIds = getSegmentIds(entries);
       expect(segIds).not.toContain(beyonceSeg!.segment_id);
@@ -354,8 +357,8 @@ describe('selectSegments', () => {
   });
 
   describe('time-of-day filtering', () => {
-    it('only includes time-of-day segments matching config.timeOfDay', () => {
-      const entries = selectSegments(station, library, DEFAULT_CONFIG); // timeOfDay: 'evening'
+    it('only includes time-of-day segments matching config.timeOfDay', async () => {
+      const entries = await selectSegments(station, library, DEFAULT_CONFIG); // timeOfDay: 'evening'
 
       for (const entry of entries) {
         if (entry.type !== 'segment') continue;
@@ -368,26 +371,26 @@ describe('selectSegments', () => {
       }
     });
 
-    it('excludes morning time-of-day segments when timeOfDay is evening', () => {
+    it('excludes morning time-of-day segments when timeOfDay is evening', async () => {
       const morningSeg = library.find(
         (s) => s.type === 'time_of_day' && s.mood_tags.includes('morning'),
       )!;
-      const entries = selectSegments(station, library, DEFAULT_CONFIG);
+      const entries = await selectSegments(station, library, DEFAULT_CONFIG);
       const segIds = getSegmentIds(entries);
       expect(segIds).not.toContain(morningSeg.segment_id);
     });
   });
 
   describe('deterministic output', () => {
-    it('produces identical output for the same seed', () => {
-      const a = selectSegments(station, library, { ...DEFAULT_CONFIG, variationSeed: 123 });
-      const b = selectSegments(station, library, { ...DEFAULT_CONFIG, variationSeed: 123 });
+    it('produces identical output for the same seed', async () => {
+      const a = await selectSegments(station, library, { ...DEFAULT_CONFIG, variationSeed: 123 });
+      const b = await selectSegments(station, library, { ...DEFAULT_CONFIG, variationSeed: 123 });
       expect(a).toEqual(b);
     });
 
-    it('produces different output for different seeds', () => {
-      const a = selectSegments(station, library, { ...DEFAULT_CONFIG, variationSeed: 1 });
-      const b = selectSegments(station, library, { ...DEFAULT_CONFIG, variationSeed: 2 });
+    it('produces different output for different seeds', async () => {
+      const a = await selectSegments(station, library, { ...DEFAULT_CONFIG, variationSeed: 1 });
+      const b = await selectSegments(station, library, { ...DEFAULT_CONFIG, variationSeed: 2 });
       // They may occasionally match on small libraries, but with 50+ segments this is extremely unlikely
       const aIds = getSegmentIds(a);
       const bIds = getSegmentIds(b);
@@ -396,36 +399,45 @@ describe('selectSegments', () => {
   });
 
   describe('sparse library', () => {
-    it('handles a library with only intro and outro', () => {
+    it('handles a library with only intro and outro', async () => {
       const minLib = [
         makeSegment({ segment_id: 'SEG-SI-00001', type: 'show_intro', energy_level: 3 }),
         makeSegment({ segment_id: 'SEG-SO-00001', type: 'show_outro', energy_level: 3 }),
       ];
 
-      const entries = selectSegments(station, minLib, DEFAULT_CONFIG);
-      // Should have intro + 15 songs + outro = 17
+      const entries = await selectSegments(station, minLib, DEFAULT_CONFIG);
+      // Should have intro + 15 songs + outro + bridged transitions
       expect(entries[0].type).toBe('segment');
       expect(entries[entries.length - 1].type).toBe('segment');
       expect(songEntries(entries)).toHaveLength(15);
     });
 
-    it('handles an empty library gracefully', () => {
-      const entries = selectSegments(station, [], DEFAULT_CONFIG);
-      // All songs, no segments
-      expect(entries).toHaveLength(15);
+    it('handles an empty library gracefully', async () => {
+      const entries = await selectSegments(station, [], DEFAULT_CONFIG);
+      // All songs present
       expect(songEntries(entries)).toHaveLength(15);
-      expect(segmentEntries(entries)).toHaveLength(0);
+      // Synthesized boundaries: first entry is show_intro, last is show_outro
+      const segs = segmentEntries(entries) as Extract<TimelineEntry, { type: 'segment' }>[];
+      expect(segs.length).toBeGreaterThanOrEqual(2);
+      const firstSeg = segs[0];
+      const lastSeg = segs[segs.length - 1];
+      // Verify boundary segment IDs match show_intro / show_outro patterns
+      expect(firstSeg.segment_id).toMatch(/^SEG-SI-/);
+      expect(lastSeg.segment_id).toMatch(/^SEG-SO-/);
+      // First entry overall is the intro segment, last entry overall is the outro
+      expect(entries[0]).toBe(firstSeg);
+      expect(entries[entries.length - 1]).toBe(lastSeg);
     });
 
-    it('handles an empty tracklist', () => {
+    it('handles an empty tracklist', async () => {
       const emptyStation = makeStation({ tracklist: [] });
-      const entries = selectSegments(emptyStation, library, DEFAULT_CONFIG);
+      const entries = await selectSegments(emptyStation, library, DEFAULT_CONFIG);
       expect(entries).toHaveLength(0);
     });
 
-    it('handles a single-track station', () => {
+    it('handles a single-track station', async () => {
       const singleStation = makeStation({ tracklist: [TRACKS[0]] });
-      const entries = selectSegments(singleStation, library, DEFAULT_CONFIG);
+      const entries = await selectSegments(singleStation, library, DEFAULT_CONFIG);
       // Intro + song + outro
       const songs = songEntries(entries);
       expect(songs).toHaveLength(1);
@@ -435,7 +447,7 @@ describe('selectSegments', () => {
   });
 
   describe('usage_count and quality_score preference', () => {
-    it('prefers segments with lower usage_count', () => {
+    it('prefers segments with lower usage_count', async () => {
       const lowUsage = makeSegment({
         segment_id: 'SEG-TR-LOW01',
         type: 'transition',
@@ -460,7 +472,7 @@ describe('selectSegments', () => {
 
       // Run multiple seeds — the low-usage one should be picked every time
       for (let seed = 1; seed <= 10; seed++) {
-        const entries = selectSegments(station, testLib, { ...DEFAULT_CONFIG, variationSeed: seed });
+        const entries = await selectSegments(station, testLib, { ...DEFAULT_CONFIG, variationSeed: seed });
         const transitionIds = getSegmentIds(entries).filter(
           (id) => id === lowUsage.segment_id || id === highUsage.segment_id,
         );
@@ -470,7 +482,7 @@ describe('selectSegments', () => {
       }
     });
 
-    it('prefers higher quality_score when usage_count is equal', () => {
+    it('prefers higher quality_score when usage_count is equal', async () => {
       const highQ = makeSegment({
         segment_id: 'SEG-TR-HIQ01',
         type: 'transition',
@@ -494,7 +506,7 @@ describe('selectSegments', () => {
       ];
 
       for (let seed = 1; seed <= 10; seed++) {
-        const entries = selectSegments(station, testLib, { ...DEFAULT_CONFIG, variationSeed: seed });
+        const entries = await selectSegments(station, testLib, { ...DEFAULT_CONFIG, variationSeed: seed });
         const transitionIds = getSegmentIds(entries).filter(
           (id) => id === highQ.segment_id || id === lowQ.segment_id,
         );
@@ -506,8 +518,8 @@ describe('selectSegments', () => {
   });
 
   describe('all songs are included', () => {
-    it('includes every track from the station tracklist in order', () => {
-      const entries = selectSegments(station, library, DEFAULT_CONFIG);
+    it('includes every track from the station tracklist in order', async () => {
+      const entries = await selectSegments(station, library, DEFAULT_CONFIG);
       const songs = songEntries(entries) as Extract<TimelineEntry, { type: 'song' }>[];
       expect(songs).toHaveLength(TRACKS.length);
       for (let i = 0; i < TRACKS.length; i++) {
@@ -519,8 +531,8 @@ describe('selectSegments', () => {
   });
 
   describe('timeline structure', () => {
-    it('never has two consecutive segments (except intro before first song)', () => {
-      const entries = selectSegments(station, library, DEFAULT_CONFIG);
+    it('never has two consecutive segments (except intro before first song)', async () => {
+      const entries = await selectSegments(station, library, DEFAULT_CONFIG);
 
       // After the intro, we should not see two segments in a row
       // (the intro is allowed to be followed by a song)

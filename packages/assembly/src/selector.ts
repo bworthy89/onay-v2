@@ -1,4 +1,14 @@
 import type { Station, Segment, SegmentType, TimelineEntry, TracklistEntry } from '@onay/core';
+import {
+  detectLowConfidence,
+  generateBridge,
+  synthesizeBoundary,
+  StubLLMProvider,
+  StubTTSProvider,
+  type BridgingContext,
+  type LLMProvider,
+  type TTSProvider,
+} from './bridging';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -7,6 +17,10 @@ import type { Station, Segment, SegmentType, TimelineEntry, TracklistEntry } fro
 export interface AssemblyConfig {
   timeOfDay: string;
   variationSeed: number;
+  llmProvider?: LLMProvider;
+  ttsProvider?: TTSProvider;
+  /** Allow stub LLM/TTS providers. Must be true in test/dev; omit in production. */
+  allowStubs?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -137,13 +151,29 @@ function getCandidates(
 // Main selector
 // ---------------------------------------------------------------------------
 
-export function selectSegments(
+export async function selectSegments(
   station: Station,
   library: Segment[],
   config: AssemblyConfig,
-): TimelineEntry[] {
+): Promise<TimelineEntry[]> {
   const rng = createRng(config.variationSeed);
   const tracklist = station.tracklist;
+
+  // Validate providers — stubs only allowed when explicitly opted in
+  let llm: LLMProvider;
+  let tts: TTSProvider;
+  if (config.llmProvider && config.ttsProvider) {
+    llm = config.llmProvider;
+    tts = config.ttsProvider;
+  } else if (config.allowStubs) {
+    llm = config.llmProvider ?? new StubLLMProvider();
+    tts = config.ttsProvider ?? new StubTTSProvider();
+  } else {
+    throw new Error(
+      'selectSegments requires llmProvider and ttsProvider in production. ' +
+      'Pass both providers, or set allowStubs: true for test/dev mode.',
+    );
+  }
 
   if (tracklist.length === 0) return [];
 
@@ -181,13 +211,20 @@ export function selectSegments(
     nextTrack: tracklist[0] ?? null,
   };
 
-  // Prefer genre-matching intro, fall back to any intro
+  // Prefer genre-matching intro, fall back to any intro, synthesize if none exist
   let introCandidates = getCandidates(library, ['show_intro'], introCtx, 5);
   if (introCandidates.length === 0) {
     introCandidates = library.filter((s) => s.type === 'show_intro');
   }
   if (introCandidates.length > 0) {
     useSegment(pickBest(introCandidates, rng, usageBumps));
+  } else {
+    try {
+      const intro = await synthesizeBoundary(
+        'show_intro', station.name, station.genre_tags, station.mood_tags, tts,
+      );
+      useSegment(intro);
+    } catch { /* boundary synthesis failed — continue without intro */ }
   }
 
   // --- 2. Songs with interleaved segments ---
@@ -237,7 +274,24 @@ export function selectSegments(
       candidates = getCandidates(library, transitionTypes, ctx, 2);
     }
 
-    if (candidates.length > 0) {
+    // If library candidates are low confidence (±1 energy rule), generate a bridge
+    if (detectLowConfidence(candidates, energyTarget, 1)) {
+      const bridgingCtx: BridgingContext = {
+        previousSong: track,
+        nextSong: nextTrack,
+        stationMood: station.mood_tags,
+        stationGenre: station.genre_tags,
+      };
+      try {
+        const bridged = await generateBridge(bridgingCtx, llm, tts);
+        useSegment(bridged);
+      } catch {
+        // LLM/TTS failure — fall back to best available candidate or skip
+        if (candidates.length > 0) {
+          useSegment(pickBest(candidates, rng, usageBumps));
+        }
+      }
+    } else if (candidates.length > 0) {
       useSegment(pickBest(candidates, rng, usageBumps));
     }
   }
@@ -260,6 +314,13 @@ export function selectSegments(
   }
   if (outroCandidates.length > 0) {
     useSegment(pickBest(outroCandidates, rng, usageBumps));
+  } else {
+    try {
+      const outro = await synthesizeBoundary(
+        'show_outro', station.name, station.genre_tags, station.mood_tags, tts,
+      );
+      useSegment(outro);
+    } catch { /* boundary synthesis failed — continue without outro */ }
   }
 
   return entries;

@@ -378,6 +378,8 @@ Each issue should be completable in 1-3 coding sessions. If an issue takes more 
 | `feature/api-stations` | merged | Station CRUD + track management + segment library endpoints. 68 integration tests |
 | `feature/api-timelines` | merged | Timeline manifest endpoints: create, get active, history, get by ID. 27 integration tests |
 | `feature/tts-quality` | PR #30 | Audio quality scoring: `scoreSegment()` + `batchScore()` in `packages/tts/src/quality.ts`. WAV integrity checks (RIFF/WAVE header, 16-bit PCM, sample rate ≥ 24000), duration validation per segment type, silence detection (leading/trailing/internal gaps). Returns `QualityResult` with `quality_score` (0-1) and `quality_flags`. 17 tests |
+| `feature/assembly-manifest` | PR #33 (merged) | Timeline manifest builder (`buildManifest`, `validateManifest`, `getManifestStats`) + segment selector (`selectSegments`) with all assembly rules + CLI. 46 tests |
+| `feature/assembly-bridging` | PR #34 | Dynamic bridging fallback: `BridgingContext`, `LLMProvider`/`TTSProvider` interfaces, `StubLLMProvider` (6 deterministic templates), `StubTTSProvider` (silent WAV), `detectLowConfidence()`, `generateBridge()`, `synthesizeBoundary()`. Selector generates bridge segments on-the-fly when library candidates are empty/overused/energy-mismatched. Stubs gated behind `allowStubs` flag. Error-resilient (try/catch fallback). 72 tests |
 
 ### API Endpoints (from `feature/api-stations`)
 
@@ -419,9 +421,29 @@ Each issue should be completable in 1-3 coding sessions. If an issue takes more 
 
 **Test setup:** `src/test-setup.ts` provides `createTestDb()` — creates an in-memory SQLite database with all migrations applied. Test files mock `db.js` via `vi.mock` and clean tables in `beforeEach`.
 
+### Assembly Pipeline (`packages/assembly/`)
+
+The assembly package is now functional with segment selection, manifest building, and dynamic bridging.
+
+**Selector** (`src/selector.ts`): `selectSegments(station, library, config)` → `Promise<TimelineEntry[]>`. Async. Enforces all assembly rules (intro/outro, 60-70% coverage, no-repeat-within-5, energy ±1/±2 widening, ad-lib limits, artist shoutout adjacency, time-of-day). Uses seeded PRNG (mulberry32) for deterministic output.
+
+**Bridging** (`src/bridging.ts`): When library candidates are low-confidence (empty pool, energy mismatch at ±1, all overused >10), generates transition segments dynamically via pluggable `LLMProvider` + `TTSProvider`. Also synthesizes `show_intro`/`show_outro` boundary segments when library has none. Stubs gated behind `config.allowStubs` — production requires real providers.
+
+**Manifest** (`src/manifest.ts`): `buildManifest()`, `validateManifest()`, `getManifestStats()`. Validation: entries non-empty, first/last must be segment, no consecutive segments in middle, all fields present.
+
+**Config** (`AssemblyConfig`):
+```typescript
+{
+  timeOfDay: string;
+  variationSeed: number;
+  llmProvider?: LLMProvider;
+  ttsProvider?: TTSProvider;
+  allowStubs?: boolean;  // must be true for stub providers in test/dev
+}
+```
+
 ### Not yet started
 
-- Assembly pipeline (`packages/assembly/` — empty)
 - Tools web app (`apps/tools/` — empty)
 - Mobile app stub implementations (interfaces in place, bodies unimplemented)
 
@@ -439,6 +461,6 @@ Each issue should be completable in 1-3 coding sessions. If an issue takes more 
 
 **Phase 1: Foundation** — Set up Chatterbox, define schemas, build Segment Studio MVP, produce initial segment library (300-500 segments for hip-hop/R&B), build Station Manager MVP, build assembly pipeline MVP, deploy first test station.
 
-**Next up:** Merge pending feature branches → run seed script → build assembly pipeline.
+**Next up:** Merge pending feature branches → run seed script → build tools web app (Station Manager, Segment Studio, Assembly Dashboard).
 
 **Phase 2: Mobile App** — Run v1 → v2 UI migration (`v2-migration/migrate-ui.sh`). Implement stubs against v2 backend. Priority order: Storage → AuthService → api → MusicProvider → SessionEngine/QueueManager (consume timeline manifests) → AudioCoordinator/SegmentController (segment playback). Do NOT rebuild or significantly modify the UI — implement the stub interfaces so existing screens work with the new backend.
