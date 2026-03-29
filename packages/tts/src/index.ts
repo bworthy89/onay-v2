@@ -8,3 +8,5 @@ export { buildPrompt, parseResponse, generateScripts, StubLLMClient } from './sc
 export type { ScriptGenRequest, ScriptGenResult, LLMClient } from './scriptgen';
 export { TEMPLATE_BANK, getExamples, getRandomTemplates } from './templates';
 export type { ScriptTemplate } from './templates';
+export { scoreSegment, batchScore } from './quality';
+export type { QualityResult } from './quality';
