@@ -3,6 +3,7 @@ import { NavBar } from './components/NavBar'
 import { SegmentStudio } from './pages/SegmentStudio'
 import { StationList } from './pages/StationList'
 import { StationEditor } from './pages/StationEditor'
+import { AssemblyDashboard } from './pages/AssemblyDashboard'
 
 function App() {
   return (
@@ -14,17 +15,8 @@ function App() {
         <Route path="/stations/new" element={<StationEditor />} />
         <Route path="/stations/:id" element={<StationEditor />} />
         <Route path="/segments" element={<SegmentStudio />} />
-        <Route path="/assembly" element={<AssemblyPlaceholder />} />
+        <Route path="/assembly" element={<AssemblyDashboard />} />
       </Routes>
-    </div>
-  )
-}
-
-function AssemblyPlaceholder() {
-  return (
-    <div className="p-8 text-center">
-      <h1 className="text-xl font-semibold text-onay-text mb-2">Assembly Dashboard</h1>
-      <p className="text-sm text-onay-muted">Coming soon — issue #16</p>
     </div>
   )
 }

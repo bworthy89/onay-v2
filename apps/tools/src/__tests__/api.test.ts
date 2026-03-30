@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { getSegments, updateSegment, deleteSegment, bulkApprove, getStats } from '../api';
+import {
+  getSegments, updateSegment, deleteSegment, bulkApprove, getStats,
+  getTimeline, getTimelineHistory, getTimelineById, triggerAssembly,
+} from '../api';
 
 const mockFetch = vi.fn();
 globalThis.fetch = mockFetch;
@@ -111,6 +114,76 @@ describe('api client', () => {
 
       expect(mockFetch).toHaveBeenCalledWith('/api/segments/stats', undefined);
       expect(result).toEqual(stats);
+    });
+  });
+
+  describe('getTimeline', () => {
+    it('fetches current timeline for station', async () => {
+      const timeline = { id: 'tl-1', station_id: 's-1', created_at: '2026-03-01', entries: [] };
+      mockFetch.mockResolvedValueOnce(jsonResponse(timeline));
+
+      const result = await getTimeline('s-1');
+
+      expect(mockFetch).toHaveBeenCalledWith('/api/stations/s-1/timeline', undefined);
+      expect(result).toEqual(timeline);
+    });
+
+    it('encodes station ID', async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ id: 'tl-1', entries: [] }));
+
+      await getTimeline('s/1');
+
+      expect(mockFetch.mock.calls[0][0]).toBe('/api/stations/s%2F1/timeline');
+    });
+  });
+
+  describe('getTimelineHistory', () => {
+    it('fetches history with limit', async () => {
+      const history = [{ id: 'tl-1', created_at: '2026-03-01', entry_count: 5, total_duration_ms: 100000 }];
+      mockFetch.mockResolvedValueOnce(jsonResponse(history));
+
+      const result = await getTimelineHistory('s-1', 10);
+
+      const url = mockFetch.mock.calls[0][0] as string;
+      expect(url).toContain('/api/stations/s-1/timeline/history');
+      expect(url).toContain('limit=10');
+      expect(result).toEqual(history);
+    });
+
+    it('omits limit when not provided', async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse([]));
+
+      await getTimelineHistory('s-1');
+
+      expect(mockFetch.mock.calls[0][0]).toBe('/api/stations/s-1/timeline/history');
+    });
+  });
+
+  describe('getTimelineById', () => {
+    it('fetches timeline by ID', async () => {
+      const timeline = { id: 'tl-1', station_id: 's-1', entries: [] };
+      mockFetch.mockResolvedValueOnce(jsonResponse(timeline));
+
+      const result = await getTimelineById('tl-1');
+
+      expect(mockFetch).toHaveBeenCalledWith('/api/timelines/tl-1', undefined);
+      expect(result).toEqual(timeline);
+    });
+  });
+
+  describe('triggerAssembly', () => {
+    it('sends POST to assemble endpoint', async () => {
+      const result = { id: 'tl-1', station_id: 's-1', entries: [], stats: {} };
+      mockFetch.mockResolvedValueOnce(jsonResponse(result, 201));
+
+      const response = await triggerAssembly('s-1');
+
+      expect(mockFetch).toHaveBeenCalledWith('/api/stations/s-1/assemble', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      expect(response).toEqual(result);
     });
   });
 

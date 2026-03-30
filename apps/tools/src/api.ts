@@ -236,3 +236,71 @@ export async function removeTrack(stationId: string, trackId: string): Promise<v
     { method: 'DELETE' },
   );
 }
+
+// --- Timeline types ---
+
+export interface TimelineEntry {
+  type: 'song' | 'segment';
+  // Song fields
+  canonical_id?: string;
+  artist?: string;
+  title?: string;
+  isrc?: string;
+  // Segment fields
+  segment_id?: string;
+  audio_url?: string;
+  segment_type?: string;
+  script_text?: string;
+  // Shared
+  duration_ms: number;
+}
+
+export interface Timeline {
+  id: string;
+  station_id: string;
+  created_at: string;
+  entries: TimelineEntry[];
+}
+
+export interface TimelineHistoryItem {
+  id: string;
+  created_at: string;
+  entry_count: number;
+  total_duration_ms: number;
+}
+
+export interface AssembleResult extends Timeline {
+  stats: {
+    total_duration_ms: number;
+    song_count: number;
+    segment_count: number;
+    segment_ratio: number;
+  };
+}
+
+// --- Timeline API ---
+
+export async function getTimeline(stationId: string): Promise<Timeline> {
+  return request<Timeline>(`/api/stations/${encodeURIComponent(stationId)}/timeline`);
+}
+
+export async function getTimelineHistory(stationId: string, limit?: number): Promise<TimelineHistoryItem[]> {
+  const params = new URLSearchParams();
+  if (limit !== undefined) params.set('limit', String(limit));
+  const qs = params.toString();
+  return request<TimelineHistoryItem[]>(
+    `/api/stations/${encodeURIComponent(stationId)}/timeline/history${qs ? `?${qs}` : ''}`,
+  );
+}
+
+export async function getTimelineById(id: string): Promise<Timeline> {
+  return request<Timeline>(`/api/timelines/${encodeURIComponent(id)}`);
+}
+
+export async function triggerAssembly(stationId: string): Promise<AssembleResult> {
+  return request<AssembleResult>(`/api/stations/${encodeURIComponent(stationId)}/assemble`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  });
+}
