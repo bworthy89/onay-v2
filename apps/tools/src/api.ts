@@ -117,3 +117,122 @@ export async function bulkApprove(threshold: number): Promise<BulkApproveRespons
 export async function getStats(): Promise<LibraryStats> {
   return request<LibraryStats>('/api/segments/stats');
 }
+
+// --- Station types ---
+
+export interface Station {
+  station_id: string;
+  name: string;
+  description: string | null;
+  genre_tags: string[];
+  mood_tags: string[];
+  cover_art_url: string | null;
+  rotation_schedule: Record<string, unknown> | null;
+  is_published: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StationWithTracklist extends Station {
+  tracklist: Track[];
+}
+
+export interface Track {
+  id: string;
+  canonical_id: string;
+  artist: string;
+  title: string;
+  isrc: string | null;
+  duration_ms: number;
+  position: number;
+  apple_music_id: string | null;
+  spotify_id: string | null;
+}
+
+export interface CreateStationData {
+  name: string;
+  description?: string;
+  genre_tags?: string[];
+  mood_tags?: string[];
+  cover_art_url?: string;
+}
+
+export interface UpdateStationData {
+  name?: string;
+  description?: string | null;
+  genre_tags?: string[];
+  mood_tags?: string[];
+  cover_art_url?: string;
+  is_published?: boolean;
+}
+
+export interface AddTrackData {
+  canonical_id: string;
+  artist: string;
+  title: string;
+  duration_ms: number;
+  isrc?: string;
+}
+
+export interface ReplaceTrackData {
+  canonical_id: string;
+  artist: string;
+  title: string;
+  duration_ms: number;
+  isrc?: string;
+}
+
+// --- Station API ---
+
+export async function getStations(): Promise<Station[]> {
+  return request<Station[]>('/api/stations');
+}
+
+export async function getStation(id: string): Promise<StationWithTracklist> {
+  return request<StationWithTracklist>(`/api/stations/${encodeURIComponent(id)}`);
+}
+
+export async function createStation(data: CreateStationData): Promise<Station> {
+  return request<Station>('/api/stations', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateStation(id: string, data: UpdateStationData): Promise<Station> {
+  return request<Station>(`/api/stations/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteStation(id: string): Promise<void> {
+  return request<void>(`/api/stations/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function addTrack(stationId: string, track: AddTrackData): Promise<Track> {
+  return request<Track>(`/api/stations/${encodeURIComponent(stationId)}/tracks`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(track),
+  });
+}
+
+export async function replaceTracklist(stationId: string, tracks: ReplaceTrackData[]): Promise<Track[]> {
+  return request<Track[]>(`/api/stations/${encodeURIComponent(stationId)}/tracks`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(tracks),
+  });
+}
+
+export async function removeTrack(stationId: string, trackId: string): Promise<void> {
+  return request<void>(
+    `/api/stations/${encodeURIComponent(stationId)}/tracks/${encodeURIComponent(trackId)}`,
+    { method: 'DELETE' },
+  );
+}
