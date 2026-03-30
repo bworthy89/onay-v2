@@ -55,7 +55,10 @@ function SegmentPlayer({ src }: { src?: string }) {
       audio.pause();
       setPlaying(false);
     } else {
-      audio.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
+      audio.play().then(() => setPlaying(true)).catch((err) => {
+        console.error('Playback failed:', err);
+        setPlaying(false);
+      });
     }
   };
 
