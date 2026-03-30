@@ -147,7 +147,14 @@ export function StationEditor() {
         });
         // Save tracks if any were added
         if (tracks.length > 0) {
-          await replaceTracklist(station.station_id, tracks.map(trackToReplaceData));
+          try {
+            await replaceTracklist(station.station_id, tracks.map(trackToReplaceData));
+          } catch (err) {
+            // Station was created but tracks failed — navigate to it so user can retry
+            setError(err instanceof Error ? err.message : 'Station created but failed to save tracks');
+            navigate(`/stations/${station.station_id}`, { replace: true });
+            return;
+          }
         }
         navigate(`/stations/${station.station_id}`, { replace: true });
       } else {
@@ -361,7 +368,7 @@ export function StationEditor() {
                   onClick={() => moveTrack(i, -1)}
                   disabled={i === 0}
                   className="w-6 h-6 text-xs rounded border border-onay-border text-onay-muted hover:text-onay-text disabled:opacity-20"
-                  title="Move up"
+                  aria-label={`Move ${track.artist} — ${track.title} up`}
                 >
                   &#9650;
                 </button>
@@ -369,14 +376,14 @@ export function StationEditor() {
                   onClick={() => moveTrack(i, 1)}
                   disabled={i === tracks.length - 1}
                   className="w-6 h-6 text-xs rounded border border-onay-border text-onay-muted hover:text-onay-text disabled:opacity-20"
-                  title="Move down"
+                  aria-label={`Move ${track.artist} — ${track.title} down`}
                 >
                   &#9660;
                 </button>
                 <button
                   onClick={() => removeTrackAt(i)}
                   className="w-6 h-6 text-xs rounded border border-red-700 text-red-400 hover:bg-red-900/40"
-                  title="Remove"
+                  aria-label={`Remove ${track.artist} — ${track.title}`}
                 >
                   &#10005;
                 </button>
