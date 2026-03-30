@@ -387,6 +387,7 @@ Each issue should be completable in 1-3 coding sessions. If an issue takes more 
 | `feature/assembly-manifest` | PR #33 (merged) | Timeline manifest builder (`buildManifest`, `validateManifest`, `getManifestStats`) + segment selector (`selectSegments`) with all assembly rules + CLI. 46 tests |
 | `feature/assembly-bridging` | PR #34 | Dynamic bridging fallback: `BridgingContext`, `LLMProvider`/`TTSProvider` interfaces, `StubLLMProvider` (6 deterministic templates), `StubTTSProvider` (silent WAV), `detectLowConfidence()`, `generateBridge()`, `synthesizeBoundary()`. Selector generates bridge segments on-the-fly when library candidates are empty/overused/energy-mismatched. Stubs gated behind `allowStubs` flag. Error-resilient (try/catch fallback). 72 tests |
 | `feature/tools-segment-studio` | PR #35 | Segment Studio review queue UI in `apps/tools/`. Vite + React 18 + TypeScript + Tailwind CSS v4. API client (`src/api.ts`), stats bar, filter bar (type/genre/mood/quality/search), segment cards with audio player + approve/reject/regenerate actions, bulk approve, pagination. 36 tests |
+| `feature/tools-station-manager` | PR #36 | Station Manager UI: station list (grid view), station editor (create/edit with metadata form + tracklist management with up/down reordering). React Router routing, top nav bar. Station API client functions in `api.ts`. 36 tests (existing) |
 
 ### API Endpoints (from `feature/api-stations`)
 
@@ -451,7 +452,9 @@ The assembly package is now functional with segment selection, manifest building
 
 ### Tools Web App (`apps/tools/`)
 
-Vite + React 18 + TypeScript + Tailwind CSS v4. Dark theme (`#0D0D0D` bg, `#C8832A` gold accent). Dev server proxies `/api` to backend at `localhost:3001`.
+Vite + React 19 + TypeScript + Tailwind CSS v4 + React Router v7. Dark theme (`#0D0D0D` bg, `#C8832A` gold accent). Dev server proxies `/api` to backend at `localhost:3001`.
+
+**Routing** (`src/App.tsx`): React Router with `BrowserRouter` in `main.tsx`. Routes: `/stations` → StationList, `/stations/new` → StationEditor (create), `/stations/:id` → StationEditor (edit), `/segments` → SegmentStudio, `/assembly` → placeholder. Top nav bar (`src/components/NavBar.tsx`) with NavLink active states.
 
 **Segment Studio** (`src/pages/SegmentStudio.tsx`) — Review queue for voice segments:
 - Stats bar: total segments, by-type breakdown, avg quality, total duration
@@ -461,9 +464,16 @@ Vite + React 18 + TypeScript + Tailwind CSS v4. Dark theme (`#0D0D0D` bg, `#C883
 - Bulk approve: approve all pending segments above a quality threshold
 - Pagination: 20 per page, page-based navigation
 
-**API Client** (`src/api.ts`): `getSegments(filters)`, `updateSegment(id, data)`, `deleteSegment(id)`, `bulkApprove(threshold)`, `getStats()`. Base URL from `VITE_API_URL` env var or empty (proxy).
+**Station Manager** — Station list (`src/pages/StationList.tsx`) + editor (`src/pages/StationEditor.tsx`):
+- List view: grid of gold-edge cards showing name, description, genre/mood tags, published status. "Create New Station" button
+- Editor: metadata form (name, description, genre tags, mood tags), tracklist section with up/down arrow reordering and remove buttons, add-track form (artist, title, duration as m:ss, optional ISRC)
+- `canonical_id` auto-generated as `artist - title` (with `[ISRC]` suffix when provided)
+- Save creates (POST) or updates (PUT metadata + PUT tracklist). Partial create failure (metadata OK, tracks fail) navigates to created station with error
+- Publish/unpublish toggle, delete with confirmation
 
-**Not yet built:** Station Manager, Assembly Dashboard pages.
+**API Client** (`src/api.ts`): Base URL from `VITE_API_URL` env var or empty (proxy). Segments: `getSegments(filters)`, `updateSegment(id, data)`, `deleteSegment(id)`, `bulkApprove(threshold)`, `getStats()`. Stations: `getStations()`, `getStation(id)`, `createStation(data)`, `updateStation(id, data)`, `deleteStation(id)`, `addTrack(stationId, track)`, `replaceTracklist(stationId, tracks)`, `removeTrack(stationId, trackId)`.
+
+**Not yet built:** Assembly Dashboard page.
 
 ### Not yet started
 
@@ -483,6 +493,6 @@ Vite + React 18 + TypeScript + Tailwind CSS v4. Dark theme (`#0D0D0D` bg, `#C883
 
 **Phase 1: Foundation** — Set up Chatterbox, define schemas, build Segment Studio MVP, produce initial segment library (300-500 segments for hip-hop/R&B), build Station Manager MVP, build assembly pipeline MVP, deploy first test station.
 
-**Next up:** Merge pending feature branches → Segment Studio review queue built (PR #35) → build Station Manager and Assembly Dashboard pages in `apps/tools/` → produce initial segment library.
+**Next up:** Merge pending feature branches → Station Manager built (PR #36) → build Assembly Dashboard page in `apps/tools/` (#16) → produce initial segment library.
 
 **Phase 2: Mobile App** — Run v1 → v2 UI migration (`v2-migration/migrate-ui.sh`). Implement stubs against v2 backend. Priority order: Storage → AuthService → api → MusicProvider → SessionEngine/QueueManager (consume timeline manifests) → AudioCoordinator/SegmentController (segment playback). Do NOT rebuild or significantly modify the UI — implement the stub interfaces so existing screens work with the new backend.
