@@ -50,6 +50,12 @@ onay/
 │   │   ├── assets/                # Icons, splash, Onay frames, textures
 │   │   └── app.json
 │   └── tools/                     # Station Manager, Segment Studio, Assembly Dashboard (web)
+│       ├── src/
+│       │   ├── api.ts             # Typed API client (getSegments, updateSegment, etc.)
+│       │   ├── pages/             # SegmentStudio.tsx (review queue page)
+│       │   └── components/        # StatsBar, FilterBar, SegmentCard, AudioPlayer
+│       ├── vite.config.ts         # Vite + Tailwind, proxy /api → localhost:3001
+│       └── vitest.config.ts       # Test config (jsdom)
 ├── packages/
 │   ├── core/                      # Shared types, segment schema, timeline format
 │   ├── assembly/                  # Assembly pipeline logic
@@ -380,6 +386,7 @@ Each issue should be completable in 1-3 coding sessions. If an issue takes more 
 | `feature/tts-quality` | PR #30 | Audio quality scoring: `scoreSegment()` + `batchScore()` in `packages/tts/src/quality.ts`. WAV integrity checks (RIFF/WAVE header, 16-bit PCM, sample rate ≥ 24000), duration validation per segment type, silence detection (leading/trailing/internal gaps). Returns `QualityResult` with `quality_score` (0-1) and `quality_flags`. 17 tests |
 | `feature/assembly-manifest` | PR #33 (merged) | Timeline manifest builder (`buildManifest`, `validateManifest`, `getManifestStats`) + segment selector (`selectSegments`) with all assembly rules + CLI. 46 tests |
 | `feature/assembly-bridging` | PR #34 | Dynamic bridging fallback: `BridgingContext`, `LLMProvider`/`TTSProvider` interfaces, `StubLLMProvider` (6 deterministic templates), `StubTTSProvider` (silent WAV), `detectLowConfidence()`, `generateBridge()`, `synthesizeBoundary()`. Selector generates bridge segments on-the-fly when library candidates are empty/overused/energy-mismatched. Stubs gated behind `allowStubs` flag. Error-resilient (try/catch fallback). 72 tests |
+| `feature/tools-segment-studio` | PR #35 | Segment Studio review queue UI in `apps/tools/`. Vite + React 18 + TypeScript + Tailwind CSS v4. API client (`src/api.ts`), stats bar, filter bar (type/genre/mood/quality/search), segment cards with audio player + approve/reject/regenerate actions, bulk approve, pagination. 36 tests |
 
 ### API Endpoints (from `feature/api-stations`)
 
@@ -442,9 +449,24 @@ The assembly package is now functional with segment selection, manifest building
 }
 ```
 
+### Tools Web App (`apps/tools/`)
+
+Vite + React 18 + TypeScript + Tailwind CSS v4. Dark theme (`#0D0D0D` bg, `#C8832A` gold accent). Dev server proxies `/api` to backend at `localhost:3001`.
+
+**Segment Studio** (`src/pages/SegmentStudio.tsx`) — Review queue for voice segments:
+- Stats bar: total segments, by-type breakdown, avg quality, total duration
+- Filter bar: type dropdown, genre/mood text inputs, quality range slider, script search
+- Segment cards: script text (expandable), type/status badges, genre/mood/artist tags, energy dots (1-5), quality score (color-coded: red <0.5, yellow 0.5-0.8, green >0.8), duration, exaggeration level, HTML5 audio player with seekable progress bar
+- Actions: Approve (`status: "approved"`), Reject (`status: "rejected"`), Regenerate (`status: "pending"`)
+- Bulk approve: approve all pending segments above a quality threshold
+- Pagination: 20 per page, page-based navigation
+
+**API Client** (`src/api.ts`): `getSegments(filters)`, `updateSegment(id, data)`, `deleteSegment(id)`, `bulkApprove(threshold)`, `getStats()`. Base URL from `VITE_API_URL` env var or empty (proxy).
+
+**Not yet built:** Station Manager, Assembly Dashboard pages.
+
 ### Not yet started
 
-- Tools web app (`apps/tools/` — empty)
 - Mobile app stub implementations (interfaces in place, bodies unimplemented)
 
 ### Database Schema (from `feature/api-schema` + `002-segment-status.sql`)
@@ -461,6 +483,6 @@ The assembly package is now functional with segment selection, manifest building
 
 **Phase 1: Foundation** — Set up Chatterbox, define schemas, build Segment Studio MVP, produce initial segment library (300-500 segments for hip-hop/R&B), build Station Manager MVP, build assembly pipeline MVP, deploy first test station.
 
-**Next up:** Merge pending feature branches → run seed script → build tools web app (Station Manager, Segment Studio, Assembly Dashboard).
+**Next up:** Merge pending feature branches → Segment Studio review queue built (PR #35) → build Station Manager and Assembly Dashboard pages in `apps/tools/` → produce initial segment library.
 
 **Phase 2: Mobile App** — Run v1 → v2 UI migration (`v2-migration/migrate-ui.sh`). Implement stubs against v2 backend. Priority order: Storage → AuthService → api → MusicProvider → SessionEngine/QueueManager (consume timeline manifests) → AudioCoordinator/SegmentController (segment playback). Do NOT rebuild or significantly modify the UI — implement the stub interfaces so existing screens work with the new backend.

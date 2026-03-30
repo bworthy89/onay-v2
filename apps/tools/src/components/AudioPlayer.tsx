@@ -1,5 +1,11 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 
+function formatTime(s: number): string {
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60);
+  return `${m}:${sec.toString().padStart(2, '0')}`;
+}
+
 interface AudioPlayerProps {
   src: string | null;
 }
@@ -23,8 +29,12 @@ export function AudioPlayer({ src }: AudioPlayerProps) {
       audio.pause();
       setPlaying(false);
     } else {
-      audio.play();
-      setPlaying(true);
+      audio.play().then(() => {
+        setPlaying(true);
+      }).catch((err) => {
+        console.error('Playback failed:', err);
+        setPlaying(false);
+      });
     }
   }, [playing]);
 
@@ -51,12 +61,6 @@ export function AudioPlayer({ src }: AudioPlayerProps) {
   if (!src) {
     return <div className="text-xs text-onay-muted italic">No audio</div>;
   }
-
-  const formatTime = (s: number) => {
-    const m = Math.floor(s / 60);
-    const sec = Math.floor(s % 60);
-    return `${m}:${sec.toString().padStart(2, '0')}`;
-  };
 
   return (
     <div className="flex items-center gap-2">

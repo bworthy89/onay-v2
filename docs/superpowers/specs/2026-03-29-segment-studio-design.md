@@ -10,7 +10,7 @@ Internal web tool for reviewing, approving, and rejecting Onay voice segments fr
 
 ## Stack
 
-- Vite + React 18 + TypeScript + Tailwind CSS v3
+- Vite + React 18 + TypeScript + Tailwind CSS v4
 - Lives in `apps/tools/` (workspace `@onay/tools`)
 - Vite dev server proxies `/api` to backend at `localhost:3001`
 
@@ -86,7 +86,7 @@ All functions return typed responses matching the backend shape.
 - Dark background: `#0D0D0D`
 - Text: white (`#F5F5F5`) and gray (`#888`)
 - Accent: gold `#C8832A` for interactive elements
-- Tailwind utility classes only — no custom CSS beyond directives
+- Tailwind utility classes plus a `@theme` block for custom color tokens and body styles in `index.css`
 - Functional, not polished — this is an internal tool
 
 ## Vite Config

@@ -114,7 +114,10 @@ export function SegmentStudio() {
           max="1"
           step="0.05"
           value={bulkThreshold}
-          onChange={(e) => setBulkThreshold(parseFloat(e.target.value) || 0)}
+          onChange={(e) => {
+            const parsed = parseFloat(e.target.value);
+            setBulkThreshold(Math.max(0, Math.min(1, isNaN(parsed) ? 0 : parsed)));
+          }}
           className="w-20 bg-onay-card border border-onay-border text-onay-text rounded px-2 py-1 text-sm"
         />
         <button
